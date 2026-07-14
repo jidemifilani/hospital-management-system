@@ -1,0 +1,69 @@
+export declare enum Gender {
+    MALE = "MALE",
+    FEMALE = "FEMALE",
+    OTHER = "OTHER"
+}
+export declare enum BloodGroup {
+    A_POS = "A_POS",
+    A_NEG = "A_NEG",
+    B_POS = "B_POS",
+    B_NEG = "B_NEG",
+    AB_POS = "AB_POS",
+    AB_NEG = "AB_NEG",
+    O_POS = "O_POS",
+    O_NEG = "O_NEG"
+}
+export declare enum AppointmentStatus {
+    SCHEDULED = "SCHEDULED",
+    CONFIRMED = "CONFIRMED",
+    IN_PROGRESS = "IN_PROGRESS",
+    COMPLETED = "COMPLETED",
+    CANCELLED = "CANCELLED",
+    NO_SHOW = "NO_SHOW"
+}
+export declare enum AppointmentType {
+    CONSULTATION = "CONSULTATION",
+    FOLLOW_UP = "FOLLOW_UP",
+    PROCEDURE = "PROCEDURE",
+    LAB_TEST = "LAB_TEST",
+    IMAGING = "IMAGING",
+    TELEMEDICINE = "TELEMEDICINE",
+    EMERGENCY = "EMERGENCY"
+}
+export declare enum StaffRole {
+    SUPER_ADMIN = "SUPER_ADMIN",
+    HOSPITAL_ADMIN = "HOSPITAL_ADMIN",
+    DEPARTMENT_HEAD = "DEPARTMENT_HEAD",
+    DOCTOR = "DOCTOR",
+    NURSE = "NURSE",
+    LAB_TECHNOLOGIST = "LAB_TECHNOLOGIST",
+    RADIOLOGIST = "RADIOLOGIST",
+    PHARMACIST = "PHARMACIST",
+    CASHIER = "CASHIER",
+    RECEPTIONIST = "RECEPTIONIST",
+    HR_OFFICER = "HR_OFFICER",
+    AUDITOR = "AUDITOR"
+}
+export declare enum UserStatus {
+    ACTIVE = "ACTIVE",
+    INACTIVE = "INACTIVE",
+    SUSPENDED = "SUSPENDED",
+    PENDING_VERIFICATION = "PENDING_VERIFICATION"
+}
+export declare enum Department {
+    OUTPATIENT = "OUTPATIENT",
+    INPATIENT = "INPATIENT",
+    EMERGENCY = "EMERGENCY",
+    SURGERY = "SURGERY",
+    PEDIATRICS = "PEDIATRICS",
+    OBSTETRICS = "OBSTETRICS",
+    CARDIOLOGY = "CARDIOLOGY",
+    NEUROLOGY = "NEUROLOGY",
+    ONCOLOGY = "ONCOLOGY",
+    RADIOLOGY = "RADIOLOGY",
+    LABORATORY = "LABORATORY",
+    PHARMACY = "PHARMACY",
+    ICU = "ICU",
+    PHYSIOTHERAPY = "PHYSIOTHERAPY"
+}
+//# sourceMappingURL=enums.d.ts.map
