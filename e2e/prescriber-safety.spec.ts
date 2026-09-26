@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login, apiToken, API_BASE, uniqueSuffix } from "./helpers";
+import { apiToken, API_BASE, uniqueSuffix } from "./helpers";
 
 /**
  * The safety gate is the one screen where a wrong click can harm someone, so
@@ -49,7 +49,6 @@ test.describe("prescriber clinical safety gate", () => {
   });
 
   test("blocks a contraindicated drug until the prescriber acknowledges", async ({ page }) => {
-    await login(page);
     await page.goto("/pharmacy");
 
     await page.getByRole("button", { name: /new prescription/i }).click();

@@ -1,6 +1,11 @@
 import { Page, expect, APIRequestContext } from "@playwright/test";
 
+import path from "path";
+
 export const ADMIN = { email: "admin@hostital.ng", password: "admin123456" };
+
+/** Where the shared signed-in session is cached between specs. */
+export const STORAGE_STATE = path.join(__dirname, ".auth", "admin.json");
 export const API_BASE = process.env.E2E_API_URL ?? "http://localhost:4000/api/v1";
 
 export async function login(page: Page) {
@@ -10,12 +15,20 @@ export async function login(page: Page) {
   await page.getByRole("button", { name: /sign in/i }).click();
   await page.waitForURL(/\/dashboard/, { timeout: 30_000 });
 
-  // Reaching /dashboard happens before NextAuth has committed the session
-  // cookie; navigating immediately races it and bounces back to login.
+  // Reaching /dashboard happens before NextAuth has committed the session, and
+  // navigating immediately races it back to the login page. Poll the session
+  // endpoint rather than the cookie: it is the authoritative signal, and the
+  // generous budget absorbs the dev server compiling a route on first hit.
   await expect
-    .poll(async () => (await page.context().cookies()).some((c) => c.name.startsWith("next-auth.session-token")), {
-      timeout: 20_000,
-    })
+    .poll(
+      async () => {
+        const res = await page.request.get("/api/auth/session");
+        if (!res.ok()) return false;
+        const body = await res.json().catch(() => null);
+        return Boolean(body?.user?.id);
+      },
+      { timeout: 45_000, intervals: [250, 500, 1000] },
+    )
     .toBe(true);
 }
 
