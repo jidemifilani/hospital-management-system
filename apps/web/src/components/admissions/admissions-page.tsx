@@ -80,8 +80,9 @@ function AdmitDialog({ onClose }: { onClose: () => void }) {
         <DialogHeader><DialogTitle>Admit Patient</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1">
-            <Label className="text-xs">Find patient *</Label>
+            <Label htmlFor="adm-patient" className="text-xs">Find patient *</Label>
             <Input
+              id="adm-patient"
               placeholder="Search by name, MRN or phone…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -155,8 +156,9 @@ function AdmitDialog({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs">Reason for admission *</Label>
+            <Label htmlFor="adm-reason" className="text-xs">Reason for admission *</Label>
             <Input
+              id="adm-reason"
               placeholder="e.g. Severe malaria with dehydration"
               value={form.reason}
               onChange={(e) => setForm({ ...form, reason: e.target.value })}
@@ -164,8 +166,9 @@ function AdmitDialog({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs">Provisional diagnosis</Label>
+            <Label htmlFor="adm-diagnosis" className="text-xs">Provisional diagnosis</Label>
             <Input
+              id="adm-diagnosis"
               value={form.provisionalDiagnosis}
               onChange={(e) => setForm({ ...form, provisionalDiagnosis: e.target.value })}
             />

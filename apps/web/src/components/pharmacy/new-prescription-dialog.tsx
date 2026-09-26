@@ -196,8 +196,9 @@ export function NewPrescriptionDialog({ onClose }: { onClose: () => void }) {
 
           <div className="space-y-4">
             <div className="space-y-1">
-              <Label className="text-xs">Patient *</Label>
+              <Label htmlFor="rx-patient" className="text-xs">Patient *</Label>
               <Input
+                id="rx-patient"
                 placeholder="Search by name, MRN or phone…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -298,8 +299,8 @@ export function NewPrescriptionDialog({ onClose }: { onClose: () => void }) {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">Notes</Label>
-              <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+              <Label htmlFor="rx-notes" className="text-xs">Notes</Label>
+              <Input id="rx-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
           </div>
 

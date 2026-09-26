@@ -87,8 +87,9 @@ function NewEncounterDialog({ onClose }: { onClose: () => void }) {
         <DialogHeader><DialogTitle>Open Encounter</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1">
-            <Label className="text-xs">Find patient *</Label>
+            <Label htmlFor="enc-patient" className="text-xs">Find patient *</Label>
             <Input
+              id="enc-patient"
               placeholder="Search by name, MRN or phone…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -140,8 +141,9 @@ function NewEncounterDialog({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs">Chief complaint</Label>
+            <Label htmlFor="enc-complaint" className="text-xs">Chief complaint</Label>
             <Input
+              id="enc-complaint"
               placeholder="e.g. Fever and headache for 3 days"
               value={form.chiefComplaint}
               onChange={(e) => setForm({ ...form, chiefComplaint: e.target.value })}

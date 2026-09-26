@@ -80,8 +80,9 @@ function ItemDialog({ item, onClose }: { item: ServiceItem | null; onClose: () =
         <div className="space-y-4">
           {!isEdit && (
             <div className="space-y-1">
-              <Label className="text-xs">Code *</Label>
+              <Label htmlFor="svc-code" className="text-xs">Code *</Label>
               <Input
+                id="svc-code"
                 placeholder="e.g. LAB-FBC"
                 value={form.code}
                 onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
@@ -89,8 +90,8 @@ function ItemDialog({ item, onClose }: { item: ServiceItem | null; onClose: () =
             </div>
           )}
           <div className="space-y-1">
-            <Label className="text-xs">Name *</Label>
-            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <Label htmlFor="svc-name" className="text-xs">Name *</Label>
+            <Input id="svc-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Category *</Label>
@@ -105,24 +106,27 @@ function ItemDialog({ item, onClose }: { item: ServiceItem | null; onClose: () =
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">Private ₦ *</Label>
+              <Label htmlFor="svc-unit-price" className="text-xs">Private ₦ *</Label>
               <Input
+                id="svc-unit-price"
                 type="number"
                 value={form.unitPrice}
                 onChange={(e) => setForm({ ...form, unitPrice: e.target.value })}
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">NHIS ₦</Label>
+              <Label htmlFor="svc-nhis-price" className="text-xs">NHIS ₦</Label>
               <Input
+                id="svc-nhis-price"
                 type="number"
                 value={form.nhisPrice}
                 onChange={(e) => setForm({ ...form, nhisPrice: e.target.value })}
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">HMO ₦</Label>
+              <Label htmlFor="svc-hmo-price" className="text-xs">HMO ₦</Label>
               <Input
+                id="svc-hmo-price"
                 type="number"
                 value={form.hmoPrice}
                 onChange={(e) => setForm({ ...form, hmoPrice: e.target.value })}
@@ -130,8 +134,9 @@ function ItemDialog({ item, onClose }: { item: ServiceItem | null; onClose: () =
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Unit</Label>
+            <Label htmlFor="svc-unit" className="text-xs">Unit</Label>
             <Input
+              id="svc-unit"
               placeholder="e.g. per night"
               value={form.unit}
               onChange={(e) => setForm({ ...form, unit: e.target.value })}
