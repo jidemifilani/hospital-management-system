@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { EncountersService } from "../encounters/encounters.service";
 import { CreateQueueDto } from "./dto/create-queue.dto";
 import { customAlphabet } from "nanoid";
 
@@ -11,9 +12,12 @@ const DOCTOR_SELECT = { id: true, firstName: true, lastName: true, specializatio
 
 @Injectable()
 export class OpdQueueService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private encounters: EncountersService,
+  ) {}
 
-  async enqueue(dto: CreateQueueDto, organizationId: string) {
+  async enqueue(dto: CreateQueueDto, organizationId: string, staffId?: string | null) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -22,8 +26,14 @@ export class OpdQueueService {
     });
     const queueNumber = `Q${String(count + 1).padStart(3, "0")}`;
 
+    // Joining the queue is the patient's arrival, so it opens the episode.
+    const encounter = await this.encounters.openForPatient(dto.patientId, organizationId, {
+      departmentId: dto.departmentId,
+      createdById: staffId ?? null,
+    });
+
     return this.prisma.opdQueue.create({
-      data: { ...dto, queueNumber, organizationId },
+      data: { ...dto, queueNumber, encounterId: encounter.id, organizationId },
       include: {
         patient: { select: PATIENT_SELECT },
         department: { select: DEPT_SELECT },

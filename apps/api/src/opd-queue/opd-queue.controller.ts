@@ -15,7 +15,7 @@ export class OpdQueueController {
   @Post()
   @RequirePermissions(PERMISSIONS.OPD_MANAGE)
   enqueue(@Body() dto: CreateQueueDto, @CurrentUser() user: any) {
-    return this.service.enqueue(dto, user.organizationId);
+    return this.service.enqueue(dto, user.organizationId, user.staffId);
   }
 
   @Get()

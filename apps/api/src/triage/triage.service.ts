@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { EncountersService } from "../encounters/encounters.service";
 import { customAlphabet } from "nanoid";
 
 const genNum = customAlphabet("0123456789", 6);
@@ -11,7 +12,10 @@ const INCLUDE = {
 
 @Injectable()
 export class TriageService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private encounters: EncountersService,
+  ) {}
 
   async create(data: {
     patientId?: string; walkinName?: string; walkinPhone?: string;
@@ -20,10 +24,17 @@ export class TriageService {
     temperature?: number; oxygenSaturation?: number; respiratoryRate?: number;
     painScore?: number; glasgowComaScale?: number; notes?: string;
   }, triageNurseId: string | undefined, organizationId: string) {
-    return this.prisma.triageRecord.create({
+    // Walk-ins are triaged before they are registered, so there is no patient
+    // to hang an episode off yet — those get one when they are registered.
+    const encounterId = data.patientId
+      ? await this.openEmergencyEncounter(data.patientId, triageNurseId, organizationId)
+      : null;
+
+    const record = await this.prisma.triageRecord.create({
       data: {
         triageNumber: `TRG-${genNum()}`,
         patientId: data.patientId,
+        encounterId,
         walkinName: data.walkinName,
         walkinPhone: data.walkinPhone,
         chiefComplaint: data.chiefComplaint,
@@ -43,6 +54,46 @@ export class TriageService {
       },
       include: INCLUDE,
     });
+
+    if (encounterId) {
+      await this.prisma.encounter.update({
+        where: { id: encounterId },
+        data: { status: "TRIAGED", chiefComplaint: data.chiefComplaint },
+      });
+    }
+
+    return record;
+  }
+
+  private async openEmergencyEncounter(
+    patientId: string,
+    triageNurseId: string | undefined,
+    organizationId: string,
+  ) {
+    const nurse = triageNurseId
+      ? await this.prisma.staff.findFirst({
+          where: { id: triageNurseId, organizationId },
+          select: { departmentId: true },
+        })
+      : null;
+
+    const departmentId =
+      nurse?.departmentId ??
+      (
+        await this.prisma.department.findFirst({
+          where: { organizationId },
+          select: { id: true },
+        })
+      )?.id;
+
+    if (!departmentId) return null;
+
+    const encounter = await this.encounters.openForPatient(patientId, organizationId, {
+      departmentId,
+      type: "EMERGENCY",
+      createdById: triageNurseId ?? null,
+    });
+    return encounter.id;
   }
 
   async findAll(organizationId: string, status?: string, triageLevel?: string, date?: string) {
