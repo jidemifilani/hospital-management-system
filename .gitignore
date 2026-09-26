@@ -50,3 +50,8 @@ docker-compose.override.yml
 
 # Uploads (local dev only)
 uploads/
+
+# Playwright
+test-results/
+playwright-report/
+e2e/artifacts/

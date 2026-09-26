@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Search, Pill, AlertTriangle, CheckCircle2, Loader2, MoreHorizontal, Package } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { NewPrescriptionDialog } from "./new-prescription-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +54,7 @@ const STATUS_COLOR: Record<string, string> = {
 export function PharmacyDashboard() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<PrescriptionDetail | null>(null);
+  const [showNewRx, setShowNewRx] = useState(false);
   const { toast } = useToast();
   const qc = useQueryClient();
 
@@ -89,10 +91,17 @@ export function PharmacyDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Pharmacy</h1>
-        <p className="text-sm text-muted-foreground">Prescription dispensing and drug inventory.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Pharmacy</h1>
+          <p className="text-sm text-muted-foreground">Prescription dispensing and drug inventory.</p>
+        </div>
+        <Button onClick={() => setShowNewRx(true)}>
+          <Pill className="mr-2 h-4 w-4" /> New Prescription
+        </Button>
       </div>
+
+      {showNewRx && <NewPrescriptionDialog onClose={() => setShowNewRx(false)} />}
 
       {lowStock.length > 0 && (
         <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
