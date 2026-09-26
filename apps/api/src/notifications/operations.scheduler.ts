@@ -132,6 +132,10 @@ export class OperationsScheduler {
         lines.join("\n"),
       );
     }
+
+    this.logger.log(
+      `Aging-claims digest: ${claims.length} claim(s) across ${byOrg.size} organisation(s)`,
+    );
   }
 
   /** 07:30 daily — scheduled asset maintenance that has fallen due. */
@@ -167,6 +171,10 @@ export class OperationsScheduler {
         lines.join("\n"),
       );
     }
+
+    this.logger.log(
+      `Maintenance-due digest: ${due.length} item(s) across ${byOrg.size} organisation(s)`,
+    );
   }
 
   private notifyPharmacy(organizationId: string, subject: string, body: string) {
@@ -179,10 +187,34 @@ export class OperationsScheduler {
     subject: string,
     body: string,
   ) {
-    const recipients = await this.prisma.user.findMany({
-      where: { organizationId, role: { in: roles as never }, status: "ACTIVE", deletedAt: null },
-      select: { email: true, staff: { select: { phone: true } } },
-    });
+    const find = (targetRoles: string[]) =>
+      this.prisma.user.findMany({
+        where: {
+          organizationId,
+          role: { in: targetRoles as never },
+          status: "ACTIVE",
+          deletedAt: null,
+        },
+        select: { email: true, staff: { select: { phone: true } } },
+      });
+
+    let recipients = await find(roles);
+
+    // A hospital that has not staffed a role must not lose the alert entirely —
+    // an unread low-stock digest is how a ward runs out of something.
+    if (recipients.length === 0) {
+      recipients = await find(["SUPER_ADMIN"]);
+      if (recipients.length > 0) {
+        this.logger.warn(
+          `No ${roles.join("/")} user in org ${organizationId}; sent "${subject}" to super admin instead`,
+        );
+      }
+    }
+
+    if (recipients.length === 0) {
+      this.logger.error(`Nobody to notify for "${subject}" in org ${organizationId} — digest dropped`);
+      return 0;
+    }
 
     for (const r of recipients) {
       this.events.emit("notification.send", {
@@ -192,5 +224,6 @@ export class OperationsScheduler {
         body,
       });
     }
+    return recipients.length;
   }
 }
