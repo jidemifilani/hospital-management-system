@@ -4,6 +4,7 @@ import { LabOrderPriority } from "@prisma/client";
 export class CreateLabOrderDto {
   @IsString() patientId: string;
   @IsString() @IsOptional() appointmentId?: string;
+  @IsString() @IsOptional() encounterId?: string;
   @IsEnum(LabOrderPriority) @IsOptional() priority?: LabOrderPriority;
   @IsArray() @ArrayMinSize(1) @IsString({ each: true }) @IsNotEmpty({ each: true }) tests: string[];
   @IsString() @IsOptional() clinicalInfo?: string;

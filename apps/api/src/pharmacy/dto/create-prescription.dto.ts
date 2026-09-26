@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, ValidateNested, IsInt, Min } from "class-validator";
+import { IsString, IsOptional, IsArray, ValidateNested, IsInt, Min, IsBoolean } from "class-validator";
 import { Type } from "class-transformer";
 
 export class PrescriptionItemDto {
@@ -13,7 +13,10 @@ export class PrescriptionItemDto {
 export class CreatePrescriptionDto {
   @IsString() patientId: string;
   @IsString() @IsOptional() appointmentId?: string;
+  @IsString() @IsOptional() encounterId?: string;
   @IsArray() @ValidateNested({ each: true }) @Type(() => PrescriptionItemDto)
   items: PrescriptionItemDto[];
   @IsString() @IsOptional() notes?: string;
+  /** Prescriber has seen the safety warnings and is choosing to proceed. */
+  @IsBoolean() @IsOptional() acknowledgeWarnings?: boolean;
 }

@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../prisma/prisma.service";
+import { EncountersService } from "../encounters/encounters.service";
 import { customAlphabet } from "nanoid";
 
 const genNum = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8);
@@ -13,17 +15,36 @@ const INCLUDE = {
 
 @Injectable()
 export class TheatreService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private encounters: EncountersService,
+    private events: EventEmitter2,
+  ) {}
 
   async create(data: {
     patientId: string; surgeonId: string; anaesthesiologistId?: string; assistantSurgeonId?: string;
     procedureName: string; icdCode?: string; scheduledDate: string; scheduledDuration?: number;
     operatingRoom?: string; urgency?: string; preOpNotes?: string; anaesthesiaType?: string;
   }, createdById: string | undefined, organizationId: string) {
+    const surgeon = await this.prisma.staff.findFirst({
+      where: { id: data.surgeonId, organizationId },
+      select: { departmentId: true },
+    });
+
+    const encounterId = surgeon
+      ? (
+          await this.encounters.openForPatient(data.patientId, organizationId, {
+            departmentId: surgeon.departmentId,
+            createdById,
+          })
+        ).id
+      : null;
+
     return this.prisma.theatreBooking.create({
       data: {
         bookingNumber: `OT-${genNum()}`,
         patientId: data.patientId,
+        encounterId,
         surgeonId: data.surgeonId,
         anaesthesiologistId: data.anaesthesiologistId,
         assistantSurgeonId: data.assistantSurgeonId,
@@ -76,7 +97,45 @@ export class TheatreService {
     if (data.postOpNotes !== undefined) update.postOpNotes = data.postOpNotes;
     if (data.complications !== undefined) update.complications = data.complications;
 
-    return this.prisma.theatreBooking.update({ where: { id }, data: update, include: INCLUDE });
+    const saved = await this.prisma.theatreBooking.update({
+      where: { id },
+      data: update,
+      include: INCLUDE,
+    });
+
+    if (data.status === "COMPLETED" && booking.status !== "COMPLETED") {
+      this.events.emit("theatre.completed", {
+        bookingId: saved.id,
+        encounterId: saved.encounterId,
+        organizationId,
+        serviceItemId: await this.matchProcedure(saved.procedureName, organizationId),
+        procedureName: saved.procedureName,
+        surgeonId: saved.surgeonId,
+      });
+    }
+
+    return saved;
+  }
+
+  /** Matches the booked procedure against surgical/procedure tariffs so theatre bills itself. */
+  private async matchProcedure(procedureName: string, organizationId: string) {
+    const items = await this.prisma.serviceItem.findMany({
+      where: {
+        organizationId,
+        category: { in: ["SURGERY", "PROCEDURE"] },
+        isActive: true,
+      },
+      select: { id: true, name: true },
+    });
+
+    const target = procedureName.trim().toLowerCase();
+    const exact = items.find((i) => i.name.toLowerCase() === target);
+    if (exact) return exact.id;
+
+    const partial = items.find(
+      (i) => target.includes(i.name.toLowerCase()) || i.name.toLowerCase().includes(target),
+    );
+    return partial?.id ?? null;
   }
 
   async getSummary(organizationId: string) {

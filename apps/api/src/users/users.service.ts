@@ -41,7 +41,7 @@ export class UsersService {
         passwordHash,
         role: dto.role,
         status: "ACTIVE",
-        organizationId: dto.organizationId,
+        organizationId: dept.organizationId,
         staff: {
           create: {
             employeeId: `EMP${genEmployeeId()}`,
@@ -51,7 +51,7 @@ export class UsersService {
             specialization: dto.specialization,
             licenseNumber: dto.licenseNumber,
             departmentId: dept.id,
-            organizationId: dto.organizationId,
+            organizationId: dept.organizationId,
           },
         },
       },

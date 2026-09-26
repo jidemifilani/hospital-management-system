@@ -13,6 +13,8 @@ export enum OrderPriority {
 export class CreateRadiologyOrderDto {
   @IsString() patientId: string;
   @IsOptional() @IsString() appointmentId?: string;
+  @IsOptional() @IsString() encounterId?: string;
+  @IsOptional() @IsString() serviceItemId?: string;
   @IsEnum(ImagingModality) modality: ImagingModality;
   @IsString() bodyPart: string;
   @IsOptional() @IsEnum(OrderPriority) priority?: OrderPriority;

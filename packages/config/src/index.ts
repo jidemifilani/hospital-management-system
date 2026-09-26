@@ -157,6 +157,18 @@ export const PERMISSIONS = {
   // Discharge Management
   DISCHARGE_READ: "discharge:read",
   DISCHARGE_MANAGE: "discharge:manage",
+  // Encounters (episode of care)
+  ENCOUNTERS_READ: "encounters:read",
+  ENCOUNTERS_MANAGE: "encounters:manage",
+  // Admissions (inpatient)
+  ADMISSIONS_READ: "admissions:read",
+  ADMISSIONS_MANAGE: "admissions:manage",
+  // Charges (auto-billing ledger)
+  CHARGES_READ: "charges:read",
+  CHARGES_MANAGE: "charges:manage",
+  // Service catalogue / price list
+  CATALOGUE_READ: "catalogue:read",
+  CATALOGUE_MANAGE: "catalogue:manage",
   // Settings
   SETTINGS_READ: "settings:read",
   SETTINGS_MANAGE: "settings:manage",

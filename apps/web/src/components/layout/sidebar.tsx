@@ -14,6 +14,7 @@ import {
   Settings,
   Building2,
   Stethoscope,
+  Tags,
   CalendarRange,
   ShieldCheck,
   BedDouble,
@@ -56,6 +57,8 @@ const navItems = [
   { href: "/dashboard",    icon: LayoutDashboard, label: "Dashboard",    group: "core" },
   { href: "/patients",     icon: Users,           label: "Patients",     group: "core" },
   { href: "/appointments", icon: CalendarDays,    label: "Appointments", group: "core" },
+  { href: "/encounters",   icon: Stethoscope,     label: "Encounters",   group: "core" },
+  { href: "/admissions",   icon: BedDouble,       label: "Admissions",   group: "core" },
   { href: "/beds",         icon: BedDouble,       label: "Beds",         group: "core" },
   { href: "/staff",        icon: UserCog,         label: "Staff",        group: "core" },
   { href: "/departments",  icon: Building2,       label: "Departments",  group: "core" },
@@ -96,6 +99,7 @@ const navItems = [
   { href: "/reports",      icon: BarChart3,       label: "Reports",      group: "admin" },
   { href: "/admin/users",  icon: ShieldCheck,     label: "Users & Roles",group: "admin" },
   { href: "/admin/audit",         icon: ClipboardList, label: "Audit Trail",     group: "admin" },
+  { href: "/admin/catalogue",     icon: Tags,          label: "Service Catalogue", group: "admin" },
   { href: "/admin/site-settings", icon: Globe,         label: "Website Settings", group: "admin" },
 ];
 

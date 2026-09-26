@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { customAlphabet } from "nanoid";
 import { PrismaService } from "../prisma/prisma.service";
+import { EncountersService } from "../encounters/encounters.service";
 import { CreateLabOrderDto } from "./dto/create-lab-order.dto";
 import { AddLabResultsDto } from "./dto/add-lab-results.dto";
 
@@ -17,14 +19,22 @@ const ORDER_INCLUDE = {
 
 @Injectable()
 export class LabService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private encounters: EncountersService,
+    private events: EventEmitter2,
+  ) {}
 
   async createOrder(dto: CreateLabOrderDto, requestedById: string, organizationId: string) {
-    return this.prisma.labOrder.create({
+    const encounterId = await this.resolveEncounterId(dto, requestedById, organizationId);
+    const priced = await this.priceTests(dto.tests, organizationId);
+
+    const order = await this.prisma.labOrder.create({
       data: {
         orderNumber: `LAB-${genOrderNo()}`,
         patientId: dto.patientId,
         appointmentId: dto.appointmentId,
+        encounterId,
         priority: dto.priority ?? "ROUTINE",
         clinicalInfo: dto.clinicalInfo,
         sampleType: dto.sampleType,
@@ -36,8 +46,71 @@ export class LabService {
             result: "",
           })),
         },
+        items: {
+          create: priced.map((t) => ({
+            testName: t.testName,
+            testCode: t.testCode,
+            serviceItemId: t.serviceItemId,
+          })),
+        },
       },
-      include: ORDER_INCLUDE,
+      include: { ...ORDER_INCLUDE, items: true },
+    });
+
+    this.events.emit("lab.ordered", {
+      labOrderId: order.id,
+      encounterId,
+      organizationId,
+      requestedById,
+      items: order.items.map((i) => ({
+        id: i.id,
+        serviceItemId: i.serviceItemId,
+        testName: i.testName,
+      })),
+    });
+
+    return order;
+  }
+
+  /** Falls back to the patient's open episode so walk-in orders still get billed. */
+  private async resolveEncounterId(
+    dto: CreateLabOrderDto,
+    requestedById: string,
+    organizationId: string,
+  ) {
+    if (dto.encounterId) return dto.encounterId;
+
+    const staff = await this.prisma.staff.findFirst({
+      where: { id: requestedById, organizationId },
+      select: { departmentId: true },
+    });
+    if (!staff) return null;
+
+    const encounter = await this.encounters.openForPatient(dto.patientId, organizationId, {
+      departmentId: staff.departmentId,
+      createdById: requestedById,
+    });
+    return encounter.id;
+  }
+
+  /** Matches each requested test against the service catalogue, by code then name. */
+  private async priceTests(tests: string[], organizationId: string) {
+    const catalogue = await this.prisma.serviceItem.findMany({
+      where: { organizationId, category: "LABORATORY", isActive: true },
+      select: { id: true, code: true, name: true },
+    });
+
+    const byCode = new Map(catalogue.map((c) => [c.code.toLowerCase(), c]));
+    const byName = new Map(catalogue.map((c) => [c.name.toLowerCase(), c]));
+
+    return tests.map((raw) => {
+      const key = raw.trim().toLowerCase();
+      const match = byCode.get(key) ?? byName.get(key);
+      return {
+        testName: match?.name ?? raw,
+        testCode: match?.code ?? null,
+        serviceItemId: match?.id ?? null,
+      };
     });
   }
 
@@ -115,6 +188,21 @@ export class LabService {
         data: { status: "RESULTED" },
       }),
     ]);
+
+    const critical = dto.results.filter((r) => r.isCritical);
+    if (critical.length > 0) {
+      this.events.emit("lab.criticalResult", {
+        labOrderId: id,
+        organizationId,
+        patientId: order.patientId,
+        requestedById: order.requestedById,
+        results: critical.map((r) => ({
+          testName: r.testName,
+          result: r.result,
+          unit: r.unit ?? null,
+        })),
+      });
+    }
 
     return this.findOne(id, organizationId);
   }

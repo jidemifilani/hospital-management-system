@@ -86,6 +86,12 @@ export class AppointmentsController {
     return this.appointmentsService.update(id, dto, user.organizationId!, user.sub);
   }
 
+  @Post(":id/check-in")
+  @RequirePermissions(PERMISSIONS.APPOINTMENTS_UPDATE)
+  checkIn(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    return this.appointmentsService.checkIn(id, user.organizationId!, user.staffId);
+  }
+
   @Patch(":id/status")
   @RequirePermissions(PERMISSIONS.APPOINTMENTS_UPDATE)
   updateStatus(

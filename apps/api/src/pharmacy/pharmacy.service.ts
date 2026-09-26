@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { customAlphabet } from "nanoid";
 import { PrismaService } from "../prisma/prisma.service";
+import { EncountersService } from "../encounters/encounters.service";
+import { ClinicalSafetyService } from "../clinical-safety/clinical-safety.service";
 import { CreatePrescriptionDto } from "./dto/create-prescription.dto";
 import { CreateDrugItemDto } from "./dto/create-drug-item.dto";
 import { RestockDrugDto } from "./dto/restock-drug.dto";
@@ -18,16 +21,65 @@ const RX_INCLUDE = {
 
 @Injectable()
 export class PharmacyService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private encounters: EncountersService,
+    private safety: ClinicalSafetyService,
+    private events: EventEmitter2,
+  ) {}
 
   // ── Prescriptions ──────────────────────────────────────────────────────────
 
-  async createPrescription(dto: CreatePrescriptionDto, staffId: string, organizationId: string) {
+  async createPrescription(
+    dto: CreatePrescriptionDto & { acknowledgeWarnings?: boolean },
+    staffId: string,
+    organizationId: string,
+  ) {
+    const warnings = await this.safety.checkPrescription(
+      dto.patientId,
+      dto.items.map((i) => i.drugItemId),
+      organizationId,
+    );
+
+    const blocking = warnings.filter((w) => w.severity === "CRITICAL");
+    if (blocking.length > 0 && !dto.acknowledgeWarnings) {
+      throw new BadRequestException({
+        message: "Prescription blocked by a clinical safety check",
+        warnings,
+        hint: "Resend with acknowledgeWarnings: true to override and record the decision.",
+      });
+    }
+
+    for (const w of blocking) {
+      this.events.emit("safety.allergyDetected", {
+        patientId: dto.patientId,
+        organizationId,
+        drugName: w.subject,
+        allergen: w.allergen ?? w.subject,
+        staffId,
+      });
+    }
+
+    const staff = await this.prisma.staff.findFirst({
+      where: { id: staffId, organizationId },
+      select: { departmentId: true },
+    });
+
+    const encounterId = staff
+      ? (
+          await this.encounters.openForPatient(dto.patientId, organizationId, {
+            departmentId: staff.departmentId,
+            createdById: staffId,
+          })
+        ).id
+      : null;
+
     return this.prisma.prescription.create({
       data: {
         prescriptionNo: `RX-${genRxNo()}`,
         patientId: dto.patientId,
         appointmentId: dto.appointmentId,
+        encounterId,
         prescribedById: staffId,
         notes: dto.notes,
         organizationId,
@@ -93,19 +145,60 @@ export class PharmacyService {
       throw new BadRequestException(`Prescription is already ${rx.status.toLowerCase()}`);
     }
 
-    // Mark each item as fully dispensed and reduce stock
-    await this.prisma.$transaction([
-      ...rx.items.map((item) =>
-        this.prisma.prescriptionItem.update({
+    // Deduct stock first-expiry-first-out, so short-dated batches move first.
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of rx.items) {
+        const batches = await tx.drugStock.findMany({
+          where: {
+            drugItemId: item.drugItemId,
+            quantity: { gt: 0 },
+            expiresAt: { gt: new Date() },
+          },
+          orderBy: { expiresAt: "asc" },
+        });
+
+        const available = batches.reduce((sum, b) => sum + b.quantity, 0);
+        if (available < item.quantity) {
+          throw new BadRequestException(
+            `Insufficient stock for ${item.drugItem.name}: need ${item.quantity}, have ${available}`,
+          );
+        }
+
+        let remaining = item.quantity;
+        for (const batch of batches) {
+          if (remaining <= 0) break;
+          const take = Math.min(batch.quantity, remaining);
+          await tx.drugStock.update({
+            where: { id: batch.id },
+            data: { quantity: { decrement: take } },
+          });
+          remaining -= take;
+        }
+
+        await tx.prescriptionItem.update({
           where: { id: item.id },
           data: { dispensedQty: item.quantity },
-        }),
-      ),
-      this.prisma.prescription.update({
+        });
+      }
+
+      await tx.prescription.update({
         where: { id },
         data: { status: "DISPENSED", dispensedById: staffId, dispensedAt: new Date() },
-      }),
-    ]);
+      });
+    });
+
+    this.events.emit("pharmacy.dispensed", {
+      prescriptionId: id,
+      encounterId: rx.encounterId,
+      organizationId,
+      dispensedById: staffId,
+      items: rx.items.map((i) => ({
+        id: i.id,
+        name: i.drugItem.name,
+        quantity: i.quantity,
+        unitPrice: i.drugItem.sellingPrice.toString(),
+      })),
+    });
 
     return this.findOnePrescription(id, organizationId);
   }

@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { AppointmentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { EncountersService } from "../encounters/encounters.service";
 import { CreateAppointmentDto } from "./dto/create-appointment.dto";
 import { UpdateAppointmentDto } from "./dto/update-appointment.dto";
 
@@ -34,7 +35,66 @@ const APPOINTMENT_SELECT = {
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private encounters: EncountersService,
+  ) {}
+
+  /**
+   * Front-desk arrival. Opens the episode of care and moves the appointment on,
+   * so the consultation fee and any subsequent orders bill themselves.
+   */
+  async checkIn(id: string, organizationId: string, staffId?: string | null) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { id, organizationId, deletedAt: null },
+      select: {
+        id: true,
+        patientId: true,
+        departmentId: true,
+        doctorId: true,
+        status: true,
+        chiefComplaint: true,
+        isTelemedicine: true,
+      },
+    });
+    if (!appointment) throw new NotFoundException("Appointment not found");
+    if (appointment.status === "CANCELLED" || appointment.status === "NO_SHOW") {
+      throw new BadRequestException(`Cannot check in a ${appointment.status.toLowerCase()} appointment`);
+    }
+
+    const existing = await this.prisma.encounter.findFirst({
+      where: { appointmentId: id, organizationId, deletedAt: null },
+      select: { id: true },
+    });
+
+    const encounter =
+      existing ??
+      (await this.encounters.create(
+        {
+          patientId: appointment.patientId,
+          departmentId: appointment.departmentId,
+          appointmentId: appointment.id,
+          attendingDoctorId: appointment.doctorId,
+          type: appointment.isTelemedicine ? "TELEMEDICINE" : "OUTPATIENT",
+          chiefComplaint: appointment.chiefComplaint ?? undefined,
+        },
+        organizationId,
+        staffId ?? null,
+      ));
+
+    await this.prisma.appointment.update({
+      where: { id },
+      data: { status: "IN_PROGRESS" },
+    });
+
+    return this.prisma.encounter.findUnique({
+      where: { id: encounter.id },
+      include: {
+        patient: { select: { id: true, mrn: true, firstName: true, lastName: true } },
+        department: { select: { id: true, name: true } },
+      },
+    });
+  }
 
   async create(dto: CreateAppointmentDto, organizationId: string, createdById: string) {
     const scheduledAt = new Date(dto.scheduledAt);

@@ -54,6 +54,11 @@ import { WardRoundsModule } from "./ward-rounds/ward-rounds.module";
 import { ConsentModule } from "./consent/consent.module";
 import { DischargeModule } from "./discharge/discharge.module";
 import { SiteSettingsModule } from "./site-settings/site-settings.module";
+import { ChargesModule } from "./charges/charges.module";
+import { EncountersModule } from "./encounters/encounters.module";
+import { AdmissionsModule } from "./admissions/admissions.module";
+import { CatalogueModule } from "./catalogue/catalogue.module";
+import { ClinicalSafetyModule } from "./clinical-safety/clinical-safety.module";
 
 @Module({
   imports: [
@@ -125,6 +130,11 @@ import { SiteSettingsModule } from "./site-settings/site-settings.module";
     ConsentModule,
     DischargeModule,
     SiteSettingsModule,
+    ChargesModule,
+    EncountersModule,
+    AdmissionsModule,
+    CatalogueModule,
+    ClinicalSafetyModule,
   ],
 })
 export class AppModule {}

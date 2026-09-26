@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { customAlphabet } from "nanoid";
 import { PrismaService } from "../prisma/prisma.service";
+import { EncountersService } from "../encounters/encounters.service";
 import { CreateRadiologyOrderDto } from "./dto/create-radiology-order.dto";
 import { AddRadiologyResultDto } from "./dto/add-radiology-result.dto";
 
@@ -20,14 +22,24 @@ const ORDER_INCLUDE = {
 
 @Injectable()
 export class RadiologyService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private encounters: EncountersService,
+    private events: EventEmitter2,
+  ) {}
 
   async createOrder(dto: CreateRadiologyOrderDto, requestedById: string, organizationId: string) {
-    return this.prisma.radiologyOrder.create({
+    const encounterId = await this.resolveEncounterId(dto, requestedById, organizationId);
+    const serviceItemId =
+      dto.serviceItemId ?? (await this.matchServiceItem(dto.modality, dto.bodyPart, organizationId));
+
+    const order = await this.prisma.radiologyOrder.create({
       data: {
         orderNumber: `RAD-${genOrderNo()}`,
         patientId: dto.patientId,
         appointmentId: dto.appointmentId,
+        encounterId,
+        serviceItemId,
         modality: dto.modality as any,
         bodyPart: dto.bodyPart,
         priority: (dto.priority ?? "ROUTINE") as any,
@@ -38,6 +50,66 @@ export class RadiologyService {
       },
       include: ORDER_INCLUDE,
     });
+
+    this.events.emit("radiology.ordered", {
+      radiologyOrderId: order.id,
+      encounterId,
+      organizationId,
+      serviceItemId,
+      description: `${dto.modality.replace(/_/g, " ")} — ${dto.bodyPart}`,
+      requestedById,
+    });
+
+    return order;
+  }
+
+  private async resolveEncounterId(
+    dto: CreateRadiologyOrderDto,
+    requestedById: string,
+    organizationId: string,
+  ) {
+    if (dto.encounterId) return dto.encounterId;
+
+    const staff = await this.prisma.staff.findFirst({
+      where: { id: requestedById, organizationId },
+      select: { departmentId: true },
+    });
+    if (!staff) return null;
+
+    const encounter = await this.encounters.openForPatient(dto.patientId, organizationId, {
+      departmentId: staff.departmentId,
+      createdById: requestedById,
+    });
+    return encounter.id;
+  }
+
+  /** Best-effort catalogue match so imaging orders price themselves. */
+  private async matchServiceItem(modality: string, bodyPart: string, organizationId: string) {
+    const hints: Record<string, string> = {
+      XRAY: "x-ray",
+      CT_SCAN: "ct scan",
+      MRI: "mri",
+      ULTRASOUND: "ultrasound",
+      MAMMOGRAPHY: "mammogram",
+      ECHOCARDIOGRAPHY: "echocardiogram",
+    };
+    const hint = hints[modality];
+    if (!hint) return null;
+
+    const items = await this.prisma.serviceItem.findMany({
+      where: { organizationId, category: "RADIOLOGY", isActive: true },
+      select: { id: true, name: true },
+    });
+
+    const candidates = items.filter((i) => i.name.toLowerCase().includes(hint));
+    if (candidates.length === 0) return null;
+
+    const parts = bodyPart.toLowerCase().split(/\s+/).filter(Boolean);
+    const exact = candidates.find((c) =>
+      parts.some((p) => p.length > 2 && c.name.toLowerCase().includes(p)),
+    );
+
+    return (exact ?? candidates[0])!.id;
   }
 
   async findAll(

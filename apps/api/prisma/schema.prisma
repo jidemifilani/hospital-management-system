@@ -174,6 +174,10 @@ model Organization {
   users         User[]
   staff         Staff[]
   patients      Patient[]
+  encounters    Encounter[]
+  admissions    Admission[]
+  serviceItems  ServiceItem[]
+  charges       Charge[]
   departments   Department[]
   appointments  Appointment[]
   auditLogs     AuditLog[]
@@ -274,6 +278,7 @@ model Department {
   code           String
   description    String?
   headOfDeptId   String?
+  consultationServiceItemId String?
   isActive       Boolean  @default(true)
   organizationId String
   createdAt      DateTime @default(now())
@@ -289,6 +294,8 @@ model Department {
   incidents    IncidentReport[]
   assets        Asset[]
   handovers     ShiftHandover[]
+  encounters    Encounter[]
+  consultationServiceItem ServiceItem? @relation(fields: [consultationServiceItemId], references: [id])
 
   @@unique([code, organizationId])
   @@index([organizationId])
@@ -368,6 +375,11 @@ model Staff {
   wardRoundsAsNurse        WardRound[]       @relation("WardRoundNurse")
   consentsRequested        ConsentForm[]     @relation("ConsentRequestedBy")
   dischargesProcessed      DischargeRecord[] @relation("DischargeDoctor")
+  encountersAttending      Encounter[]       @relation("EncounterAttending")
+  admissionsAdmitting      Admission[]       @relation("AdmissionAdmitting")
+  admissionsAttending      Admission[]       @relation("AdmissionAttending")
+  bedAssignmentsMade       BedAssignment[]   @relation("BedAssignedBy")
+  chargesCreated           Charge[]          @relation("ChargeCreatedBy")
 
   @@index([departmentId])
   @@index([organizationId])
@@ -436,6 +448,9 @@ model Patient {
   wardRounds           WardRound[]       @relation("PatientWardRounds")
   consentForms         ConsentForm[]     @relation("PatientConsents")
   dischargeRecords     DischargeRecord[] @relation("PatientDischarges")
+  encounters           Encounter[]
+  admissions           Admission[]
+  charges              Charge[]
 
   @@index([mrn])
   @@index([phone])
@@ -480,6 +495,7 @@ model Appointment {
   prescriptions   Prescription[]
   radiologyOrders RadiologyOrder[]
   referrals       Referral[]
+  encounters      Encounter[]
 
   @@index([patientId])
   @@index([doctorId])
@@ -496,6 +512,8 @@ model Bed {
   id           String    @id @default(cuid())
   bedNumber    String
   ward         String
+  wardClass    String?
+  serviceItemId String?
   departmentId String
   isOccupied   Boolean   @default(false)
   patientId    String?
@@ -504,7 +522,9 @@ model Bed {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  department Department @relation(fields: [departmentId], references: [id])
+  department  Department     @relation(fields: [departmentId], references: [id])
+  serviceItem ServiceItem?   @relation(fields: [serviceItemId], references: [id])
+  assignments BedAssignment[]
 
   @@unique([bedNumber, departmentId])
   @@index([departmentId])
@@ -536,6 +556,7 @@ model VitalSigns {
   id               String   @id @default(cuid())
   patientId        String
   appointmentId    String?
+  encounterId      String?
   recordedById     String
   temperature      Float?
   systolicBP       Int?
@@ -555,6 +576,7 @@ model VitalSigns {
 
   patient     Patient      @relation(fields: [patientId], references: [id])
   appointment Appointment? @relation(fields: [appointmentId], references: [id])
+  encounter   Encounter?   @relation(fields: [encounterId], references: [id])
   recordedBy  Staff        @relation(fields: [recordedById], references: [id])
 
   @@index([patientId])
@@ -568,6 +590,7 @@ model ClinicalNote {
   id             String           @id @default(cuid())
   patientId      String
   appointmentId  String?
+  encounterId    String?
   authorId       String
   noteType       ClinicalNoteType @default(SOAP)
   subjective     String?
@@ -583,6 +606,7 @@ model ClinicalNote {
 
   patient     Patient      @relation(fields: [patientId], references: [id])
   appointment Appointment? @relation(fields: [appointmentId], references: [id])
+  encounter   Encounter?   @relation(fields: [encounterId], references: [id])
   author      Staff        @relation(fields: [authorId], references: [id])
 
   @@index([patientId])
@@ -597,6 +621,7 @@ model Diagnosis {
   id             String          @id @default(cuid())
   patientId      String
   appointmentId  String?
+  encounterId    String?
   diagnosedById  String
   icdCode        String?
   description    String
@@ -611,6 +636,7 @@ model Diagnosis {
 
   patient      Patient      @relation(fields: [patientId], references: [id])
   appointment  Appointment? @relation(fields: [appointmentId], references: [id])
+  encounter    Encounter?   @relation(fields: [encounterId], references: [id])
   diagnosedBy  Staff        @relation(fields: [diagnosedById], references: [id])
 
   @@index([patientId])
@@ -625,6 +651,7 @@ model Invoice {
   invoiceNumber  String        @unique
   patientId      String
   appointmentId  String?
+  encounterId    String?
   subtotal       Decimal       @db.Decimal(12, 2)
   discount       Decimal       @default(0) @db.Decimal(12, 2)
   tax            Decimal       @default(0) @db.Decimal(12, 2)
@@ -641,8 +668,10 @@ model Invoice {
 
   patient         Patient          @relation(fields: [patientId], references: [id])
   appointment     Appointment?     @relation(fields: [appointmentId], references: [id])
+  encounter       Encounter?       @relation(fields: [encounterId], references: [id])
   organization    Organization     @relation(fields: [organizationId], references: [id])
   items           InvoiceItem[]
+  charges         Charge[]
   payments        Payment[]
   insuranceClaims InsuranceClaim[]
 
@@ -695,6 +724,7 @@ model LabOrder {
   orderNumber    String           @unique
   patientId      String
   appointmentId  String?
+  encounterId    String?
   requestedById  String
   priority       LabOrderPriority @default(ROUTINE)
   status         LabOrderStatus   @default(PENDING)
@@ -709,10 +739,12 @@ model LabOrder {
 
   patient      Patient      @relation(fields: [patientId], references: [id])
   appointment  Appointment? @relation(fields: [appointmentId], references: [id])
+  encounter    Encounter?   @relation(fields: [encounterId], references: [id])
   requestedBy  Staff        @relation("LabRequestedBy", fields: [requestedById], references: [id])
   collectedBy  Staff?       @relation("LabCollectedBy", fields: [collectedById], references: [id])
   organization Organization @relation(fields: [organizationId], references: [id])
   results      LabResult[]
+  items        LabOrderItem[]
 
   @@index([patientId])
   @@index([organizationId])
@@ -794,6 +826,7 @@ model Prescription {
   patientId        String
   prescribedById   String
   appointmentId    String?
+  encounterId      String?
   status           PrescriptionStatus @default(PENDING)
   notes            String?
   dispensedById    String?
@@ -807,6 +840,7 @@ model Prescription {
   prescribedBy Staff              @relation("PrescribedBy", fields: [prescribedById], references: [id])
   dispensedBy  Staff?             @relation("DispensedBy", fields: [dispensedById], references: [id])
   appointment  Appointment?       @relation(fields: [appointmentId], references: [id])
+  encounter    Encounter?         @relation(fields: [encounterId], references: [id])
   organization Organization       @relation(fields: [organizationId], references: [id])
   items        PrescriptionItem[]
 
@@ -1018,6 +1052,8 @@ model RadiologyOrder {
   orderNumber    String               @unique
   patientId      String
   appointmentId  String?
+  encounterId    String?
+  serviceItemId  String?
   requestedById  String
   modality       ImagingModality
   bodyPart       String
@@ -1034,6 +1070,8 @@ model RadiologyOrder {
 
   patient     Patient          @relation(fields: [patientId], references: [id])
   appointment Appointment?     @relation(fields: [appointmentId], references: [id])
+  encounter   Encounter?       @relation(fields: [encounterId], references: [id])
+  serviceItem ServiceItem?     @relation(fields: [serviceItemId], references: [id])
   requestedBy Staff            @relation("RadRequested", fields: [requestedById], references: [id])
   performedBy Staff?           @relation("RadPerformed", fields: [performedById], references: [id])
   organization Organization    @relation(fields: [organizationId], references: [id])
@@ -1097,6 +1135,7 @@ model OpdQueue {
   departmentId         String
   doctorId             String?
   appointmentId        String?
+  encounterId          String?
   status               OpdQueueStatus @default(WAITING)
   calledAt             DateTime?
   consultationStartAt  DateTime?
@@ -1107,6 +1146,7 @@ model OpdQueue {
   updatedAt            DateTime       @updatedAt
 
   patient      Patient      @relation(fields: [patientId], references: [id])
+  encounter    Encounter?   @relation(fields: [encounterId], references: [id])
   department   Department   @relation(fields: [departmentId], references: [id])
   doctor       Staff?       @relation("QueueDoctor", fields: [doctorId], references: [id])
   organization Organization @relation(fields: [organizationId], references: [id])
@@ -1371,6 +1411,7 @@ model TheatreBooking {
   id                    String               @id @default(cuid())
   bookingNumber         String               @unique
   patientId             String
+  encounterId           String?
   surgeonId             String
   anaesthesiologistId   String?
   assistantSurgeonId    String?
@@ -1393,6 +1434,7 @@ model TheatreBooking {
   updatedAt             DateTime             @updatedAt
 
   patient             Patient      @relation(fields: [patientId], references: [id])
+  encounter           Encounter?   @relation(fields: [encounterId], references: [id])
   surgeon             Staff        @relation("SurgeonBookings", fields: [surgeonId], references: [id])
   anaesthesiologist   Staff?       @relation("AnaesthesiologistBookings", fields: [anaesthesiologistId], references: [id])
   assistantSurgeon    Staff?       @relation("AssistantSurgeonBookings", fields: [assistantSurgeonId], references: [id])
@@ -1423,6 +1465,7 @@ model CarePlan {
   id             String         @id @default(cuid())
   planNumber     String         @unique
   patientId      String
+  encounterId    String?
   nurseId        String
   title          String
   goals          String?
@@ -1435,6 +1478,7 @@ model CarePlan {
   updatedAt      DateTime       @updatedAt
 
   patient      Patient       @relation(fields: [patientId], references: [id])
+  encounter    Encounter?    @relation(fields: [encounterId], references: [id])
   nurse        Staff         @relation("NurseCarePlans", fields: [nurseId], references: [id])
   organization Organization  @relation(fields: [organizationId], references: [id])
   tasks        CarePlanTask[]
@@ -1621,6 +1665,7 @@ model DietOrder {
   id             String          @id @default(cuid())
   orderNumber    String          @unique
   patientId      String
+  encounterId    String?
   dietType       String
   startDate      DateTime        @default(now())
   endDate        DateTime?
@@ -1633,6 +1678,7 @@ model DietOrder {
   updatedAt      DateTime        @updatedAt
 
   patient      Patient      @relation(fields: [patientId], references: [id])
+  encounter    Encounter?   @relation(fields: [encounterId], references: [id])
   orderedBy    Staff?       @relation("DietOrderedBy", fields: [orderedById], references: [id])
   organization Organization @relation(fields: [organizationId], references: [id])
   mealRecords  MealRecord[]
@@ -1838,6 +1884,7 @@ model TriageRecord {
   id              String       @id @default(cuid())
   triageNumber    String       @unique
   patientId       String?
+  encounterId     String?
   walkinName      String?
   walkinPhone     String?
   chiefComplaint  String
@@ -1860,6 +1907,7 @@ model TriageRecord {
   updatedAt       DateTime     @updatedAt
 
   patient      Patient?     @relation(fields: [patientId], references: [id])
+  encounter    Encounter?   @relation(fields: [encounterId], references: [id])
   triageNurse  Staff?       @relation("TriageNurse", fields: [triageNurseId], references: [id])
   organization Organization @relation(fields: [organizationId], references: [id])
 
@@ -2072,6 +2120,7 @@ model MARRecord {
   organizationId   String
   marNumber        String          @unique
   patientId        String
+  encounterId      String?
   prescriptionId   String?
   medicationName   String
   dose             String
@@ -2087,6 +2136,7 @@ model MARRecord {
 
   organization   Organization @relation(fields: [organizationId], references: [id])
   patient        Patient      @relation("PatientMAR", fields: [patientId], references: [id])
+  encounter      Encounter?   @relation(fields: [encounterId], references: [id])
   administeredBy Staff?       @relation("MARAdministeredBy", fields: [administeredById], references: [id])
 
   @@index([organizationId, patientId])
@@ -2309,6 +2359,7 @@ model RehabSession {
   organizationId String
   sessionNumber  String      @unique
   patientId      String
+  encounterId    String?
   therapistId    String
   type           TherapyType
   status         RehabStatus @default(SCHEDULED)
@@ -2324,6 +2375,7 @@ model RehabSession {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   patient      Patient      @relation("PatientRehab", fields: [patientId], references: [id])
+  encounter    Encounter?   @relation(fields: [encounterId], references: [id])
   therapist    Staff        @relation("RehabTherapist", fields: [therapistId], references: [id])
 
   @@index([organizationId, patientId])
@@ -2347,6 +2399,7 @@ model WardRound {
   organizationId    String
   roundNumber       String          @unique
   patientId         String
+  encounterId       String?
   bedId             String?
   attendingDoctorId String
   nurseId           String?
@@ -2363,6 +2416,7 @@ model WardRound {
 
   organization     Organization @relation(fields: [organizationId], references: [id])
   patient          Patient      @relation("PatientWardRounds", fields: [patientId], references: [id])
+  encounter        Encounter?   @relation(fields: [encounterId], references: [id])
   attendingDoctor  Staff        @relation("WardRoundDoctor", fields: [attendingDoctorId], references: [id])
   nurse            Staff?       @relation("WardRoundNurse", fields: [nurseId], references: [id])
 
@@ -2441,6 +2495,8 @@ model DischargeRecord {
   organizationId         String
   dischargeNumber        String          @unique
   patientId              String
+  encounterId            String?
+  admissionId            String?
   bedId                  String?
   admittedAt             DateTime?
   dischargedAt           DateTime?
@@ -2457,9 +2513,266 @@ model DischargeRecord {
   organization       Organization @relation(fields: [organizationId], references: [id])
   patient            Patient      @relation("PatientDischarges", fields: [patientId], references: [id])
   dischargingDoctor  Staff        @relation("DischargeDoctor", fields: [dischargingDoctorId], references: [id])
+  encounter          Encounter?   @relation(fields: [encounterId], references: [id])
+  admission          Admission?   @relation(fields: [admissionId], references: [id])
 
   @@index([organizationId, patientId])
   @@index([organizationId, status])
   @@index([organizationId, dischargedAt])
+  @@index([encounterId])
   @@map("discharge_records")
+}
+
+// ─── Clinical Core: Encounters, Admissions, Charges ───────────────────────────
+
+enum EncounterType {
+  OUTPATIENT
+  INPATIENT
+  EMERGENCY
+  DAY_CASE
+  TELEMEDICINE
+}
+
+enum EncounterStatus {
+  PLANNED
+  ARRIVED
+  TRIAGED
+  IN_CONSULTATION
+  OBSERVATION
+  ADMITTED
+  DISCHARGED
+  CANCELLED
+}
+
+enum AdmissionType {
+  ELECTIVE
+  EMERGENCY
+  MATERNITY
+  TRANSFER_IN
+  DAY_CASE
+}
+
+enum AdmissionStatus {
+  ACTIVE
+  DISCHARGED
+  TRANSFERRED_OUT
+  ABSCONDED
+  DECEASED
+}
+
+enum ServiceCategory {
+  CONSULTATION
+  LABORATORY
+  RADIOLOGY
+  PROCEDURE
+  SURGERY
+  BED_CHARGE
+  NURSING
+  PHARMACY
+  CONSUMABLE
+  AMBULANCE
+  OTHER
+}
+
+enum ChargeSource {
+  MANUAL
+  CONSULTATION
+  LAB_ORDER
+  RADIOLOGY_ORDER
+  PHARMACY_DISPENSE
+  BED_DAY
+  PROCEDURE
+  THEATRE
+}
+
+/// Universal episode of care. Every clinical event and charge hangs off one of these.
+model Encounter {
+  id                String          @id @default(cuid())
+  encounterNumber   String          @unique
+  patientId         String
+  type              EncounterType   @default(OUTPATIENT)
+  status            EncounterStatus @default(PLANNED)
+  appointmentId     String?
+  departmentId      String
+  attendingDoctorId String?
+  chiefComplaint    String?
+  startedAt         DateTime        @default(now())
+  endedAt           DateTime?
+  disposition       String?
+  isBillable        Boolean         @default(true)
+  organizationId    String
+  createdById       String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+
+  patient         Patient      @relation(fields: [patientId], references: [id])
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id])
+  department      Department   @relation(fields: [departmentId], references: [id])
+  attendingDoctor Staff?       @relation("EncounterAttending", fields: [attendingDoctorId], references: [id])
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
+  admission        Admission?
+  charges          Charge[]
+  vitalSigns       VitalSigns[]
+  clinicalNotes    ClinicalNote[]
+  diagnoses        Diagnosis[]
+  labOrders        LabOrder[]
+  radiologyOrders  RadiologyOrder[]
+  prescriptions    Prescription[]
+  invoices         Invoice[]
+  triageRecords    TriageRecord[]
+  opdQueues        OpdQueue[]
+  dietOrders       DietOrder[]
+  marRecords       MARRecord[]
+  wardRounds       WardRound[]
+  carePlans        CarePlan[]
+  theatreBookings  TheatreBooking[]
+  rehabSessions    RehabSession[]
+  dischargeRecords DischargeRecord[]
+
+  @@index([patientId])
+  @@index([organizationId, status])
+  @@index([organizationId, type])
+  @@index([organizationId, startedAt])
+  @@map("encounters")
+}
+
+/// Inpatient stay. One per INPATIENT encounter.
+model Admission {
+  id                   String          @id @default(cuid())
+  admissionNumber      String          @unique
+  encounterId          String          @unique
+  patientId            String
+  admissionType        AdmissionType   @default(EMERGENCY)
+  status               AdmissionStatus @default(ACTIVE)
+  admittedAt           DateTime        @default(now())
+  expectedDischargeAt  DateTime?
+  dischargedAt         DateTime?
+  admittingDoctorId    String
+  attendingDoctorId    String?
+  reason               String
+  provisionalDiagnosis String?
+  lengthOfStayDays     Int?
+  lastBedChargeOn      DateTime?
+  organizationId       String
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  encounter       Encounter    @relation(fields: [encounterId], references: [id])
+  patient         Patient      @relation(fields: [patientId], references: [id])
+  admittingDoctor Staff        @relation("AdmissionAdmitting", fields: [admittingDoctorId], references: [id])
+  attendingDoctor Staff?       @relation("AdmissionAttending", fields: [attendingDoctorId], references: [id])
+  organization    Organization @relation(fields: [organizationId], references: [id])
+
+  bedAssignments   BedAssignment[]
+  dischargeRecords DischargeRecord[]
+
+  @@index([patientId])
+  @@index([organizationId, status])
+  @@index([organizationId, admittedAt])
+  @@map("admissions")
+}
+
+/// Bed occupancy history — supports ward transfers and per-night bed billing.
+model BedAssignment {
+  id             String    @id @default(cuid())
+  admissionId    String
+  bedId          String
+  assignedAt     DateTime  @default(now())
+  releasedAt     DateTime?
+  assignedById   String?
+  reason         String?
+  organizationId String
+  createdAt      DateTime  @default(now())
+
+  admission  Admission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  bed        Bed       @relation(fields: [bedId], references: [id])
+  assignedBy Staff?    @relation("BedAssignedBy", fields: [assignedById], references: [id])
+
+  @@index([admissionId])
+  @@index([bedId])
+  @@index([organizationId, releasedAt])
+  @@map("bed_assignments")
+}
+
+/// Billable service catalogue — the single source of truth for pricing.
+model ServiceItem {
+  id             String          @id @default(cuid())
+  code           String
+  name           String
+  category       ServiceCategory
+  unitPrice      Decimal         @db.Decimal(12, 2)
+  nhisPrice      Decimal?        @db.Decimal(12, 2)
+  hmoPrice       Decimal?        @db.Decimal(12, 2)
+  unit           String?
+  description    String?
+  isActive       Boolean         @default(true)
+  organizationId String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+  charges         Charge[]
+  labOrderItems   LabOrderItem[]
+  radiologyOrders RadiologyOrder[]
+  beds            Bed[]
+  departments     Department[]
+
+  @@unique([code, organizationId])
+  @@index([organizationId, category])
+  @@map("service_items")
+}
+
+/// Every billable event lands here automatically, then gets rolled into an invoice.
+/// The (source, sourceRef) unique index makes charge posting idempotent.
+model Charge {
+  id             String          @id @default(cuid())
+  encounterId    String
+  patientId      String
+  serviceItemId  String?
+  description    String
+  category       ServiceCategory
+  source         ChargeSource    @default(MANUAL)
+  sourceRef      String?
+  quantity       Int             @default(1)
+  unitPrice      Decimal         @db.Decimal(12, 2)
+  total          Decimal         @db.Decimal(12, 2)
+  invoiceId      String?
+  isBilled       Boolean         @default(false)
+  isVoided       Boolean         @default(false)
+  voidReason     String?
+  incurredAt     DateTime        @default(now())
+  createdById    String?
+  organizationId String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  encounter    Encounter    @relation(fields: [encounterId], references: [id])
+  patient      Patient      @relation(fields: [patientId], references: [id])
+  serviceItem  ServiceItem? @relation(fields: [serviceItemId], references: [id])
+  invoice      Invoice?     @relation(fields: [invoiceId], references: [id])
+  createdBy    Staff?       @relation("ChargeCreatedBy", fields: [createdById], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([source, sourceRef])
+  @@index([encounterId])
+  @@index([patientId])
+  @@index([organizationId, isBilled])
+  @@map("charges")
+}
+
+/// Which tests a lab order actually contains — needed for per-test billing.
+model LabOrderItem {
+  id            String  @id @default(cuid())
+  labOrderId    String
+  serviceItemId String?
+  testName      String
+  testCode      String?
+
+  labOrder    LabOrder     @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+  serviceItem ServiceItem? @relation(fields: [serviceItemId], references: [id])
+
+  @@index([labOrderId])
+  @@map("lab_order_items")
 }

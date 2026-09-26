@@ -32,6 +32,24 @@ export class NotificationsService {
     }
   }
 
+  /** Generic escape hatch so any module can notify by emitting an event. */
+  @OnEvent("notification.send")
+  async handleGenericSend(e: {
+    channel: "email" | "sms" | "both";
+    to: { email?: string | null; phone?: string | null };
+    subject?: string;
+    body: string;
+  }) {
+    const wants = (c: "email" | "sms") => e.channel === c || e.channel === "both";
+
+    if (wants("email") && e.to.email) {
+      await this.send({ to: e.to.email, subject: e.subject, body: e.body, channel: "email" });
+    }
+    if (wants("sms") && e.to.phone) {
+      await this.send({ to: e.to.phone, body: e.body, channel: "sms" });
+    }
+  }
+
   async send(payload: NotificationPayload): Promise<void> {
     try {
       if (payload.channel === "email") {

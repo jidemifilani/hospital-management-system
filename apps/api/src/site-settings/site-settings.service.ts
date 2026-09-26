@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
@@ -140,7 +141,7 @@ export class SiteSettingsService {
   async updateTheme(organizationId: string, theme: Record<string, unknown>) {
     return this.prisma.organization.update({
       where:  { id: organizationId },
-      data:   { siteTheme: theme },
+      data:   { siteTheme: theme as Prisma.InputJsonValue },
       select: { siteTheme: true },
     });
   }
