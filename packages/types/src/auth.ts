@@ -28,7 +28,6 @@ export interface JwtPayload {
   sub: string;
   email: string;
   role: StaffRole;
-  permissions: string[];
   staffId: string | null;
   organizationId: string;
   iat?: number;

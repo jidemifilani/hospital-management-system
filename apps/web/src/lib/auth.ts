@@ -25,7 +25,6 @@ declare module "next-auth" {
       email: string;
       name: string;
       role: string;
-      permissions: string[];
       accessToken: string;
     };
   }
@@ -34,7 +33,6 @@ declare module "next-auth" {
     email: string;
     name: string;
     role: string;
-    permissions: string[];
     accessToken: string;
     refreshToken: string;
   }
@@ -44,7 +42,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string;
     role: string;
-    permissions: string[];
     accessToken: string;
     refreshToken: string;
     accessTokenExpires: number;
@@ -91,7 +88,6 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = user.role;
-        token.permissions = user.permissions;
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
         token.accessTokenExpires = Date.now() + 15 * 60 * 1000;
@@ -119,7 +115,6 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       session.user.id = token.id;
       session.user.role = token.role;
-      session.user.permissions = token.permissions;
       session.user.accessToken = token.accessToken;
       return session;
     },
