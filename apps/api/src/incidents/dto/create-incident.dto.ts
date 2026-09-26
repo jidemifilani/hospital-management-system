@@ -1,16 +1,20 @@
+import { IsString, IsOptional, IsDateString } from "class-validator";
+
+// Without decorators the global whitelist pipe rejects every property, which
+// made incident reporting impossible.
 export class CreateIncidentDto {
-  title: string;
-  description: string;
-  severity: string;
-  incidentDate: string;
-  patientId?: string;
-  departmentId?: string;
-  assignedToId?: string;
+  @IsString() title: string;
+  @IsString() description: string;
+  @IsString() severity: string;
+  @IsDateString() incidentDate: string;
+  @IsString() @IsOptional() patientId?: string;
+  @IsString() @IsOptional() departmentId?: string;
+  @IsString() @IsOptional() assignedToId?: string;
 }
 
 export class UpdateIncidentDto {
-  status?: string;
-  assignedToId?: string;
-  rootCause?: string;
-  correctiveAction?: string;
+  @IsString() @IsOptional() status?: string;
+  @IsString() @IsOptional() assignedToId?: string;
+  @IsString() @IsOptional() rootCause?: string;
+  @IsString() @IsOptional() correctiveAction?: string;
 }

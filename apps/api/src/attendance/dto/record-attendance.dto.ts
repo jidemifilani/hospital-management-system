@@ -1,10 +1,13 @@
+import { IsString, IsOptional, IsDateString } from "class-validator";
+
+// Without decorators the global whitelist pipe rejects every property.
 export class RecordAttendanceDto {
-  staffId: string;
-  date: string;
-  status?: string;
-  notes?: string;
+  @IsString() staffId: string;
+  @IsDateString() date: string;
+  @IsString() @IsOptional() status?: string;
+  @IsString() @IsOptional() notes?: string;
 }
 
 export class ClockDto {
-  time?: string;
+  @IsDateString() @IsOptional() time?: string;
 }
