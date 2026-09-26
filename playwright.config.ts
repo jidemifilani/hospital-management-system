@@ -10,7 +10,10 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [["list"]],
-  timeout: 60_000,
+  // A warm run is ~14s, but the dev server compiles routes on first request,
+  // so a cold navigation can take considerably longer. Deliberately no retries:
+  // this guards prescribing, and a retry would hide a genuine intermittent bug.
+  timeout: 120_000,
   expect: { timeout: 15_000 },
   use: {
     // Must match NEXTAUTH_URL — NextAuth session cookies are host-specific,
