@@ -19,7 +19,7 @@ import { useToast } from "@/components/ui/use-toast";
 interface DrugItem {
   id: string; name: string; genericName?: string; code: string; category: string;
   unit: string; reorderLevel: number; sellingPrice: string; isActive: boolean;
-  stock: { quantity: number; expiresAt: string; batchNumber: string }[];
+  batches: { quantity: number; expiresAt: string; batchNumber: string }[];
   _count: { prescItems: number };
 }
 
@@ -124,7 +124,7 @@ function RestockDialog({ drug, onClose, onSuccess }: { drug: DrugItem; onClose: 
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Receive Stock — {drug.name}</DialogTitle>
-          <p className="text-sm text-muted-foreground">Current stock: {drug.stock.reduce((s, b) => s + b.quantity, 0)} {drug.unit}</p>
+          <p className="text-sm text-muted-foreground">Current stock: {(drug.batches ?? []).reduce((s, b) => s + b.quantity, 0)} {drug.unit}</p>
         </DialogHeader>
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -220,7 +220,7 @@ export function DrugCatalogue() {
               : drugs.length === 0
               ? <TableRow><TableCell colSpan={8} className="py-10 text-center text-muted-foreground">No drugs in catalogue. Add the first one.</TableCell></TableRow>
               : drugs.map((d) => {
-                  const totalStock = d.stock.reduce((s, b) => s + b.quantity, 0);
+                  const totalStock = (d.batches ?? []).reduce((s, b) => s + b.quantity, 0);
                   const isLow = totalStock <= d.reorderLevel;
                   return (
                     <TableRow key={d.id}>

@@ -380,7 +380,13 @@ export class InventoryService {
   async lowStock(organizationId: string) {
     const items = await this.prisma.inventoryItem.findMany({
       where: { organizationId, isActive: true },
-      include: { levels: { select: { quantity: true } } },
+      include: {
+        levels: { select: { quantity: true } },
+        batches: {
+          where: { quantity: { gt: 0 }, expiresAt: { gt: new Date() } },
+          select: { quantity: true },
+        },
+      },
     });
 
     return items
@@ -389,7 +395,11 @@ export class InventoryService {
         code: i.code,
         name: i.name,
         unit: i.unit,
-        onHand: i.levels.reduce((sum, l) => sum + l.quantity, 0),
+        // Batch-tracked stock counts only unexpired lots; everything else
+        // counts the level held across locations.
+        onHand: i.requiresBatch
+          ? i.batches.reduce((sum, b) => sum + b.quantity, 0)
+          : i.levels.reduce((sum, l) => sum + l.quantity, 0),
         reorderLevel: i.reorderLevel,
       }))
       .filter((i) => i.onHand <= i.reorderLevel)

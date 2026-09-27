@@ -288,6 +288,7 @@ export class PharmacyService {
     return this.prisma.inventoryItem.findMany({
       where: {
         organizationId,
+        category: "DRUG",
         ...(search && {
           OR: [
             { name: { contains: search, mode: "insensitive" } },
@@ -309,7 +310,7 @@ export class PharmacyService {
 
   async getLowStockAlert(organizationId: string) {
     const drugs = await this.prisma.inventoryItem.findMany({
-      where: { organizationId, isActive: true },
+      where: { organizationId, isActive: true, category: "DRUG" },
       include: {
         batches: {
           where: { quantity: { gt: 0 }, expiresAt: { gt: new Date() } },
