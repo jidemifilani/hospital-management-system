@@ -15,6 +15,21 @@ const METHOD_ACTION: Record<string, AuditAction> = {
 /** Endpoints whose bodies carry credentials and must never be recorded. */
 const SENSITIVE_PATHS = [/\/auth\/login/, /\/auth\/refresh/, /\/auth\/mfa/, /password/i];
 
+/**
+ * Reads that expose one identified patient's clinical record.
+ *
+ * Deliberately narrow: auditing every GET would bury the signal, but a record
+ * of who opened whose chart is the part that matters — an unexplained lookup
+ * is the classic way patient confidentiality is breached.
+ */
+const PHI_READ_ROUTES = [
+  /\/patients\/:id$/,
+  /\/emr\/patients\/:patientId\//,
+  /\/encounters\/:id$/,
+  /\/admissions\/:id$/,
+  /\/charges\/encounter\/:encounterId/,
+];
+
 const SENSITIVE_FIELDS = new Set([
   "password",
   "currentPassword",
@@ -44,9 +59,18 @@ export class AuditInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context.switchToHttp().getRequest();
-    const action = METHOD_ACTION[req.method];
+    const routePath: string = req.route?.path ?? req.url;
 
-    // Only successful mutations are recorded — tap's next arm does not fire on error.
+    // Reads of an identified patient's record are audited; general list and
+    // search traffic is not, or the trail becomes unreadable. "Who opened this
+    // chart" is the question an investigation actually asks.
+    const action =
+      METHOD_ACTION[req.method] ??
+      (req.method === "GET" && PHI_READ_ROUTES.some((p) => p.test(routePath))
+        ? ("READ" as AuditAction)
+        : undefined);
+
+    // Only successful requests are recorded — tap's next arm does not fire on error.
     if (!action) return next.handle();
 
     return next.handle().pipe(
@@ -79,9 +103,14 @@ export class AuditInterceptor implements NestInterceptor {
       .split("/")
       .filter((s) => s && !s.startsWith(":"));
 
+    // Routes name the identifier differently (:id, :patientId, :encounterId),
+    // so take whichever the route actually declared.
+    const resourceId =
+      params.id ?? params.patientId ?? params.encounterId ?? Object.values(params)[0];
+
     return {
       resource: segments.join("/") || "root",
-      resourceId: params.id,
+      resourceId,
     };
   }
 

@@ -80,4 +80,41 @@ test.describe("audit trail", () => {
       expect(serialised.toLowerCase()).not.toContain(secret.toLowerCase());
     }
   });
+
+  test("records who opened a chart, but not routine list traffic", async ({ request }) => {
+    const token = await apiToken(request);
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const patients = await (
+      await request.get(`${API_BASE}/patients?limit=1`, { headers })
+    ).json();
+    const patientId = patients.data[0].id;
+
+    const readsFor = async () => {
+      const res = await request.get(`${API_BASE}/audit`, {
+        headers,
+        params: { action: "READ", limit: 100 },
+      });
+      const body = await res.json();
+      return (body.data ?? []).filter((r: any) => r.resourceId === patientId);
+    };
+
+    const before = (await readsFor()).length;
+
+    // Opening the chart.
+    await request.get(`${API_BASE}/patients/${patientId}`, { headers });
+    await request.get(`${API_BASE}/emr/patients/${patientId}/summary`, { headers });
+
+    await expect.poll(async () => (await readsFor()).length, { timeout: 20_000 })
+      .toBeGreaterThan(before);
+
+    // Routine browsing must not be recorded, or the trail becomes unreadable.
+    const listBaseline = (await readsFor()).length;
+    await request.get(`${API_BASE}/patients?limit=5`, { headers });
+    await request.get(`${API_BASE}/beds`, { headers });
+    await request.get(`${API_BASE}/dashboard/stats`, { headers });
+
+    await new Promise((r) => setTimeout(r, 2000));
+    expect((await readsFor()).length).toBe(listBaseline);
+  });
 });
