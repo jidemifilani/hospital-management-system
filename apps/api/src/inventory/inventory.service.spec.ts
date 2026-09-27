@@ -8,7 +8,22 @@ import { InventoryService } from "./inventory.service";
  * a count producing the right correction and the right accounting signal.
  */
 
-function build(opts: { onHand?: number; averageCost?: number; levelQty?: number } = {}) {
+interface Batch {
+  id: string;
+  batchNumber: string;
+  quantity: number;
+  expiresAt: Date;
+}
+
+function build(
+  opts: {
+    onHand?: number;
+    averageCost?: number;
+    levelQty?: number;
+    requiresBatch?: boolean;
+    batches?: Batch[];
+  } = {},
+) {
   const emitted: { event: string; payload: any }[] = [];
   const levelWrites: { delta: number }[] = [];
   let savedAverage: Decimal | null = null;
@@ -17,7 +32,10 @@ function build(opts: { onHand?: number; averageCost?: number; levelQty?: number 
     id: "item-1",
     name: "Examination Gloves",
     averageCost: new Decimal(opts.averageCost ?? 2000),
+    requiresBatch: opts.requiresBatch ?? false,
   };
+
+  const batchDecrements: { id: string; by: number }[] = [];
 
   const tx = {
     stockLevel: {
@@ -39,6 +57,16 @@ function build(opts: { onHand?: number; averageCost?: number; levelQty?: number 
     stockMove: {
       create: jest.fn().mockImplementation(({ data }) => Promise.resolve({ id: "mv-1", ...data })),
     },
+    stockBatch: {
+      findMany: jest.fn().mockImplementation(() =>
+        Promise.resolve([...(opts.batches ?? [])].sort((a, b) => +a.expiresAt - +b.expiresAt)),
+      ),
+      update: jest.fn().mockImplementation(({ where, data }) => {
+        batchDecrements.push({ id: where.id, by: data.quantity.decrement });
+        return Promise.resolve({});
+      }),
+      create: jest.fn().mockResolvedValue({}),
+    },
   };
 
   const prisma = {
@@ -51,7 +79,7 @@ function build(opts: { onHand?: number; averageCost?: number; levelQty?: number 
     emit: (event: string, payload: unknown) => emitted.push({ event, payload }),
   } as never);
 
-  return { service, tx, emitted, levelWrites, average: () => savedAverage };
+  return { service, tx, emitted, levelWrites, batchDecrements, average: () => savedAverage };
 }
 
 const org = "org-1";
@@ -196,5 +224,75 @@ describe("InventoryService transfers", () => {
 
     // Net zero: the holding moved, it did not change.
     expect(levelWrites.map((w) => w.delta)).toEqual([-40, 40]);
+  });
+});
+
+describe("InventoryService batch tracking (FEFO)", () => {
+  const day = (n: number) => new Date(Date.now() + n * 86_400_000);
+
+  it("drains the earliest-expiring batch before longer-dated stock", async () => {
+    const { service, batchDecrements } = build({
+      requiresBatch: true,
+      batches: [
+        { id: "late", batchNumber: "LATE", quantity: 100, expiresAt: day(400) },
+        { id: "early", batchNumber: "EARLY", quantity: 10, expiresAt: day(20) },
+      ],
+    });
+
+    await service.issue(
+      { itemId: "item-1", locationId: "loc-1", quantity: 12, type: "CONSUMPTION" },
+      "org-1",
+    );
+
+    expect(batchDecrements).toEqual([
+      { id: "early", by: 10 },
+      { id: "late", by: 2 },
+    ]);
+  });
+
+  it("refuses when unexpired batches cannot cover the quantity", async () => {
+    const { service, batchDecrements } = build({
+      requiresBatch: true,
+      batches: [{ id: "short", batchNumber: "SHORT", quantity: 5, expiresAt: day(30) }],
+    });
+
+    await expect(
+      service.issue({ itemId: "item-1", locationId: "loc-1", quantity: 12 }, "org-1"),
+    ).rejects.toThrow(/need 12, have 5/);
+
+    expect(batchDecrements).toEqual([]);
+  });
+
+  it("requires a batch number and expiry when receiving a tracked item", async () => {
+    const { service } = build({ requiresBatch: true });
+
+    await expect(
+      service.receive(
+        { itemId: "item-1", locationId: "loc-1", quantity: 10, unitCost: 100 },
+        "org-1",
+      ),
+    ).rejects.toThrow(/batch number and expiry/);
+  });
+
+  it("records the batch when one is supplied", async () => {
+    const { service, tx } = build({ requiresBatch: true, onHand: 0 });
+
+    await service.receive(
+      {
+        itemId: "item-1",
+        locationId: "loc-1",
+        quantity: 10,
+        unitCost: 100,
+        batchNumber: "B-2026-01",
+        expiresAt: day(365),
+      },
+      "org-1",
+    );
+
+    expect(tx.stockBatch.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ batchNumber: "B-2026-01", quantity: 10 }),
+      }),
+    );
   });
 });

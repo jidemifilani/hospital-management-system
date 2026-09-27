@@ -29,9 +29,9 @@ export class OperationsScheduler {
   async drugExpiryDigest() {
     const horizon = addDays(new Date(), EXPIRY_WARNING_DAYS);
 
-    const batches = await this.prisma.drugStock.findMany({
+    const batches = await this.prisma.stockBatch.findMany({
       where: { quantity: { gt: 0 }, expiresAt: { lte: horizon } },
-      include: { drugItem: { select: { name: true, organizationId: true } } },
+      include: { item: { select: { name: true, organizationId: true } } },
       orderBy: { expiresAt: "asc" },
     });
     if (batches.length === 0) return;
@@ -41,10 +41,10 @@ export class OperationsScheduler {
 
     for (const b of batches) {
       const expired = b.expiresAt < now;
-      const line = `${expired ? "EXPIRED" : "expires"} ${fmtDate(b.expiresAt)} — ${b.drugItem.name} (qty ${b.quantity})`;
-      const list = byOrg.get(b.drugItem.organizationId) ?? [];
+      const line = `${expired ? "EXPIRED" : "expires"} ${fmtDate(b.expiresAt)} — ${b.item.name} (qty ${b.quantity})`;
+      const list = byOrg.get(b.item.organizationId) ?? [];
       list.push(line);
-      byOrg.set(b.drugItem.organizationId, list);
+      byOrg.set(b.item.organizationId, list);
     }
 
     for (const [organizationId, lines] of byOrg) {
@@ -61,22 +61,26 @@ export class OperationsScheduler {
   /** 07:15 daily — anything at or below its reorder level. */
   @Cron("15 7 * * *")
   async lowStockDigest() {
-    const drugs = await this.prisma.drugItem.findMany({
+    const drugs = await this.prisma.inventoryItem.findMany({
       where: { isActive: true },
       select: {
         name: true,
         reorderLevel: true,
         organizationId: true,
-        stock: {
+        requiresBatch: true,
+        batches: {
           where: { quantity: { gt: 0 }, expiresAt: { gt: new Date() } },
           select: { quantity: true },
         },
+        levels: { select: { quantity: true } },
       },
     });
 
     const byOrg = new Map<string, string[]>();
     for (const d of drugs) {
-      const onHand = d.stock.reduce((s, b) => s + b.quantity, 0);
+      const onHand = d.requiresBatch
+        ? d.batches.reduce((s, b) => s + b.quantity, 0)
+        : d.levels.reduce((s, l) => s + l.quantity, 0);
       if (onHand > d.reorderLevel) continue;
       const list = byOrg.get(d.organizationId) ?? [];
       list.push(`${d.name}: ${onHand} on hand (reorder at ${d.reorderLevel})`);

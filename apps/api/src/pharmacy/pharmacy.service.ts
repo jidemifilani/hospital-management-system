@@ -3,6 +3,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { customAlphabet } from "nanoid";
 import { PrismaService } from "../prisma/prisma.service";
 import { EncountersService } from "../encounters/encounters.service";
+import { InventoryService } from "../inventory/inventory.service";
 import { ClinicalSafetyService } from "../clinical-safety/clinical-safety.service";
 import { CreatePrescriptionDto } from "./dto/create-prescription.dto";
 import { CreateDrugItemDto } from "./dto/create-drug-item.dto";
@@ -24,6 +25,7 @@ export class PharmacyService {
   constructor(
     private prisma: PrismaService,
     private encounters: EncountersService,
+    private inventory: InventoryService,
     private safety: ClinicalSafetyService,
     private events: EventEmitter2,
   ) {}
@@ -145,42 +147,33 @@ export class PharmacyService {
       throw new BadRequestException(`Prescription is already ${rx.status.toLowerCase()}`);
     }
 
-    // Deduct stock first-expiry-first-out, so short-dated batches move first.
+    // Stock now lives in inventory, which owns FEFO and expiry. Pharmacy keeps
+    // the clinical decision; inventory keeps the shelf.
+    const pharmacy = await this.pharmacyLocation(organizationId);
+
+    for (const item of rx.items) {
+      await this.inventory.issue(
+        {
+          itemId: item.drugItemId,
+          locationId: pharmacy.id,
+          quantity: item.quantity,
+          type: "CONSUMPTION",
+          reason: `Dispensed on ${rx.prescriptionNo}`,
+          sourceType: "PRESCRIPTION",
+          sourceId: rx.id,
+        },
+        organizationId,
+        staffId,
+      );
+    }
+
     await this.prisma.$transaction(async (tx) => {
       for (const item of rx.items) {
-        const batches = await tx.drugStock.findMany({
-          where: {
-            drugItemId: item.drugItemId,
-            quantity: { gt: 0 },
-            expiresAt: { gt: new Date() },
-          },
-          orderBy: { expiresAt: "asc" },
-        });
-
-        const available = batches.reduce((sum, b) => sum + b.quantity, 0);
-        if (available < item.quantity) {
-          throw new BadRequestException(
-            `Insufficient stock for ${item.drugItem.name}: need ${item.quantity}, have ${available}`,
-          );
-        }
-
-        let remaining = item.quantity;
-        for (const batch of batches) {
-          if (remaining <= 0) break;
-          const take = Math.min(batch.quantity, remaining);
-          await tx.drugStock.update({
-            where: { id: batch.id },
-            data: { quantity: { decrement: take } },
-          });
-          remaining -= take;
-        }
-
         await tx.prescriptionItem.update({
           where: { id: item.id },
           data: { dispensedQty: item.quantity },
         });
       }
-
       await tx.prescription.update({
         where: { id },
         data: { status: "DISPENSED", dispensedById: staffId, dispensedAt: new Date() },
@@ -196,7 +189,7 @@ export class PharmacyService {
         id: i.id,
         name: i.drugItem.name,
         quantity: i.quantity,
-        unitPrice: i.drugItem.sellingPrice.toString(),
+        unitPrice: (i.drugItem.sellingPrice?.toString() ?? "0"),
       })),
     });
 
@@ -206,10 +199,11 @@ export class PharmacyService {
   // ── Drug Inventory ─────────────────────────────────────────────────────────
 
   async getDrugItems(organizationId: string, search?: string) {
-    return this.prisma.drugItem.findMany({
+    return this.prisma.inventoryItem.findMany({
       where: {
         organizationId,
         isActive: true,
+        category: "DRUG",
         ...(search && {
           OR: [
             { name: { contains: search, mode: "insensitive" } },
@@ -219,7 +213,7 @@ export class PharmacyService {
         }),
       },
       include: {
-        stock: {
+        batches: {
           where: { quantity: { gt: 0 }, expiresAt: { gt: new Date() } },
           orderBy: { expiresAt: "asc" },
         },
@@ -229,35 +223,69 @@ export class PharmacyService {
   }
 
   async createDrugItem(dto: CreateDrugItemDto, organizationId: string) {
-    const existing = await this.prisma.drugItem.findFirst({
+    const existing = await this.prisma.inventoryItem.findFirst({
       where: { code: dto.code, organizationId },
     });
     if (existing) throw new ConflictException(`Drug with code "${dto.code}" already exists`);
 
-    return this.prisma.drugItem.create({
-      data: { ...dto, organizationId, sellingPrice: dto.sellingPrice },
+    // Drugs are batch-tracked inventory: the category is fixed and expiry is
+    // mandatory, which is what keeps FEFO honest.
+    const { category: _freeText, ...rest } = dto;
+    return this.prisma.inventoryItem.create({
+      data: {
+        ...rest,
+        category: "DRUG",
+        requiresBatch: true,
+        sellingPrice: dto.sellingPrice,
+        organizationId,
+      },
     });
   }
 
-  async restockDrug(drugItemId: string, dto: RestockDrugDto, organizationId: string) {
-    const drug = await this.prisma.drugItem.findFirst({ where: { id: drugItemId, organizationId } });
+  async restockDrug(drugItemId: string, dto: RestockDrugDto, organizationId: string, staffId?: string | null) {
+    const drug = await this.prisma.inventoryItem.findFirst({
+      where: { id: drugItemId, organizationId },
+    });
     if (!drug) throw new NotFoundException("Drug not found");
 
-    return this.prisma.drugStock.create({
-      data: {
-        drugItemId,
-        batchNumber: dto.batchNumber,
+    const pharmacy = await this.pharmacyLocation(organizationId);
+
+    // Goes through inventory so the receipt is recorded as a stock move and
+    // reaches the ledger, rather than quietly appearing on a shelf.
+    return this.inventory.receive(
+      {
+        itemId: drugItemId,
+        locationId: pharmacy.id,
         quantity: dto.quantity,
-        expiresAt: new Date(dto.expiresAt),
+        unitCost: dto.costPerUnit,
+        batchNumber: dto.batchNumber,
+        expiresAt: dto.expiresAt,
         supplierName: dto.supplierName,
-        costPerUnit: dto.costPerUnit,
+      },
+      organizationId,
+      staffId,
+    );
+  }
+
+  /** Drugs live in the pharmacy store; created on first use. */
+  private async pharmacyLocation(organizationId: string) {
+    const existing = await this.prisma.stockLocation.findUnique({
+      where: { code_organizationId: { code: "PHARMACY", organizationId } },
+    });
+    if (existing) return existing;
+
+    return this.prisma.stockLocation.create({
+      data: {
+        code: "PHARMACY",
+        name: "Pharmacy Store",
+        type: "PHARMACY",
         organizationId,
       },
     });
   }
 
   async getDrugCatalogue(organizationId: string, search?: string) {
-    return this.prisma.drugItem.findMany({
+    return this.prisma.inventoryItem.findMany({
       where: {
         organizationId,
         ...(search && {
@@ -265,13 +293,12 @@ export class PharmacyService {
             { name: { contains: search, mode: "insensitive" } },
             { genericName: { contains: search, mode: "insensitive" } },
             { code: { contains: search, mode: "insensitive" } },
-            { category: { contains: search, mode: "insensitive" } },
-          ],
+                      ],
         }),
       },
       include: {
-        stock: {
-          where: { expiresAt: { gt: new Date() } },
+        batches: {
+          where: { quantity: { gt: 0 }, expiresAt: { gt: new Date() } },
           orderBy: { expiresAt: "asc" },
         },
         _count: { select: { prescItems: true } },
@@ -281,11 +308,11 @@ export class PharmacyService {
   }
 
   async getLowStockAlert(organizationId: string) {
-    const drugs = await this.prisma.drugItem.findMany({
+    const drugs = await this.prisma.inventoryItem.findMany({
       where: { organizationId, isActive: true },
       include: {
-        stock: {
-          where: { expiresAt: { gt: new Date() } },
+        batches: {
+          where: { quantity: { gt: 0 }, expiresAt: { gt: new Date() } },
           select: { quantity: true },
         },
       },
@@ -294,10 +321,10 @@ export class PharmacyService {
     return drugs
       .map((d) => ({
         ...d,
-        totalStock: d.stock.reduce((s, b) => s + b.quantity, 0),
+        totalStock: d.batches.reduce((s, b) => s + b.quantity, 0),
       }))
       .filter((d) => d.totalStock <= d.reorderLevel)
-      .map(({ stock: _s, ...rest }) => rest)
+      .map(({ batches: _b, ...rest }) => rest)
       .sort((a, b) => a.totalStock - b.totalStock);
   }
 }

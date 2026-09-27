@@ -80,22 +80,29 @@ export class DashboardService {
       // Was raw SQL against "DrugItem"/"DrugStock" with a deletedAt column —
       // none of which exist (the tables are drug_items/drug_stock). It threw on
       // every call and a .catch(() => 0) made the tile read zero forever.
-      this.prisma.drugItem
+      this.prisma.inventoryItem
         .findMany({
           where: { organizationId, isActive: true },
           select: {
             reorderLevel: true,
-            stock: {
+            requiresBatch: true,
+            batches: {
               where: { quantity: { gt: 0 }, expiresAt: { gt: new Date() } },
               select: { quantity: true },
             },
+            levels: { select: { quantity: true } },
           },
         })
         .then(
-          (drugs) =>
-            drugs.filter(
-              (d) => d.stock.reduce((sum, b) => sum + b.quantity, 0) <= d.reorderLevel,
-            ).length,
+          (items) =>
+            items.filter((i) => {
+              // Batch-tracked stock counts only unexpired lots; everything else
+              // counts the level across locations.
+              const onHand = i.requiresBatch
+                ? i.batches.reduce((sum, b) => sum + b.quantity, 0)
+                : i.levels.reduce((sum, l) => sum + l.quantity, 0);
+              return onHand <= i.reorderLevel;
+            }).length,
         ),
 
       this.prisma.admission.count({ where: { organizationId, status: "ACTIVE" } }),

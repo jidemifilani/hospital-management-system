@@ -184,6 +184,7 @@ model Organization {
   stockLocations StockLocation[]
   inventoryItems InventoryItem[]
   stockMoves     StockMove[]
+  stockBatches   StockBatch[]
   departments   Department[]
   appointments  Appointment[]
   auditLogs     AuditLog[]
@@ -191,8 +192,6 @@ model Organization {
   payments      Payment[]
   labOrders     LabOrder[]
   prescriptions Prescription[]
-  drugItems     DrugItem[]
-  drugStock     DrugStock[]
   rosters       Roster[]
   leaveRequests   LeaveRequest[]
   radiologyOrders RadiologyOrder[]
@@ -786,49 +785,6 @@ model LabResult {
 
 // ─── Pharmacy & Inventory ─────────────────────────────────────────────────────
 
-model DrugItem {
-  id             String   @id @default(cuid())
-  name           String
-  genericName    String?
-  code           String
-  category       String
-  unit           String
-  reorderLevel   Int      @default(50)
-  sellingPrice   Decimal  @db.Decimal(10, 2)
-  isActive       Boolean  @default(true)
-  organizationId String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  stock        DrugStock[]
-  prescItems   PrescriptionItem[]
-  organization Organization @relation(fields: [organizationId], references: [id])
-
-  @@unique([code, organizationId])
-  @@index([organizationId])
-  @@map("drug_items")
-}
-
-model DrugStock {
-  id             String   @id @default(cuid())
-  drugItemId     String
-  batchNumber    String
-  quantity       Int
-  expiresAt      DateTime
-  supplierName   String?
-  costPerUnit    Decimal  @db.Decimal(10, 2)
-  receivedAt     DateTime @default(now())
-  organizationId String
-  createdAt      DateTime @default(now())
-
-  drugItem     DrugItem     @relation(fields: [drugItemId], references: [id])
-  organization Organization @relation(fields: [organizationId], references: [id])
-
-  @@index([drugItemId])
-  @@index([organizationId])
-  @@map("drug_stock")
-}
-
 model Prescription {
   id               String             @id @default(cuid())
   prescriptionNo   String             @unique
@@ -871,7 +827,7 @@ model PrescriptionItem {
   instructions   String?
 
   prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
-  drugItem     DrugItem     @relation(fields: [drugItemId], references: [id])
+  drugItem     InventoryItem @relation(fields: [drugItemId], references: [id])
 
   @@index([prescriptionId])
   @@map("prescription_items")
@@ -2923,6 +2879,7 @@ enum StockLocationType {
 }
 
 enum InventoryCategory {
+  DRUG
   CONSUMABLE
   REAGENT
   SURGICAL
@@ -2959,6 +2916,7 @@ model StockLocation {
   department   Department?   @relation(fields: [departmentId], references: [id])
   organization Organization  @relation(fields: [organizationId], references: [id])
   levels       StockLevel[]
+  batches      StockBatch[]
   movesOut     StockMove[]   @relation("MoveFrom")
   movesIn      StockMove[]   @relation("MoveTo")
 
@@ -2967,17 +2925,22 @@ model StockLocation {
   @@map("stock_locations")
 }
 
-/// A stockable thing that is not a drug. Drugs stay in DrugItem, which carries
-/// its own batch and expiry handling for dispensing.
+/// Anything stockable, drugs included. Items flagged requiresBatch are issued
+/// first-expiry-first-out from StockBatch rather than a plain level.
 model InventoryItem {
   id             String            @id @default(cuid())
   code           String
   name           String
   category       InventoryCategory @default(CONSUMABLE)
+  genericName    String?
   unit           String
   reorderLevel   Int               @default(0)
   /// Moving average, recalculated on every receipt.
   averageCost    Decimal           @default(0) @db.Decimal(12, 2)
+  /// What the item sells for; drugs and retail consumables carry one.
+  sellingPrice   Decimal?          @db.Decimal(12, 2)
+  /// Batch and expiry tracked, as medicines and reagents must be.
+  requiresBatch  Boolean           @default(false)
   isActive       Boolean           @default(true)
   organizationId String
   createdAt      DateTime          @default(now())
@@ -2986,6 +2949,8 @@ model InventoryItem {
   organization Organization @relation(fields: [organizationId], references: [id])
   levels       StockLevel[]
   moves        StockMove[]
+  batches      StockBatch[]
+  prescItems   PrescriptionItem[]
 
   @@unique([code, organizationId])
   @@index([organizationId, category])
@@ -3039,4 +3004,29 @@ model StockMove {
   @@index([organizationId, occurredAt])
   @@index([organizationId, type])
   @@map("stock_moves")
+}
+
+/// A received lot with its own expiry. Issued first-expiry-first-out so
+/// short-dated stock moves before it becomes waste.
+model StockBatch {
+  id             String    @id @default(cuid())
+  itemId         String
+  locationId     String
+  batchNumber    String
+  quantity       Int
+  expiresAt      DateTime
+  unitCost       Decimal   @db.Decimal(12, 2)
+  supplierName   String?
+  receivedAt     DateTime  @default(now())
+  organizationId String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  item         InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  location     StockLocation @relation(fields: [locationId], references: [id])
+  organization Organization  @relation(fields: [organizationId], references: [id])
+
+  @@index([itemId, expiresAt])
+  @@index([organizationId, expiresAt])
+  @@map("stock_batches")
 }

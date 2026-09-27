@@ -45,7 +45,7 @@ export class ClinicalSafetyService {
         where: { id: patientId, organizationId },
         select: { allergies: true },
       }),
-      this.prisma.drugItem.findMany({
+      this.prisma.inventoryItem.findMany({
         where: { id: { in: drugItemIds }, organizationId },
         select: { id: true, name: true, genericName: true },
       }),

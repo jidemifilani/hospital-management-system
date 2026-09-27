@@ -94,6 +94,10 @@ export class InventoryService {
       reference?: string;
       sourceType?: string;
       sourceId?: string;
+      /** Required for batch-tracked items such as medicines and reagents. */
+      batchNumber?: string;
+      expiresAt?: string | Date;
+      supplierName?: string;
     },
     organizationId: string,
     staffId?: string | null,
@@ -106,6 +110,14 @@ export class InventoryService {
     ]);
     if (!item) throw new NotFoundException("Item not found");
     if (!location) throw new NotFoundException("Location not found");
+
+    // A medicine without a batch and expiry cannot be dispensed safely, so it
+    // is refused at the door rather than discovered at the point of issue.
+    if (item.requiresBatch && (!dto.batchNumber || !dto.expiresAt)) {
+      throw new BadRequestException(
+        `${item.name} is batch-tracked — a batch number and expiry date are required`,
+      );
+    }
 
     const move = await this.prisma.$transaction(async (tx) => {
       const onHandBefore = await this.totalOnHand(tx, dto.itemId);
@@ -122,6 +134,21 @@ export class InventoryService {
       });
 
       await this.adjustLevel(tx, dto.itemId, dto.locationId, dto.quantity, organizationId);
+
+      if (item.requiresBatch) {
+        await tx.stockBatch.create({
+          data: {
+            itemId: dto.itemId,
+            locationId: dto.locationId,
+            batchNumber: dto.batchNumber!,
+            quantity: dto.quantity,
+            expiresAt: new Date(dto.expiresAt!),
+            unitCost: new Decimal(dto.unitCost),
+            supplierName: dto.supplierName ?? null,
+            organizationId,
+          },
+        });
+      }
 
       return tx.stockMove.create({
         data: {
@@ -173,7 +200,12 @@ export class InventoryService {
     if (!item) throw new NotFoundException("Item not found");
 
     const move = await this.prisma.$transaction(async (tx) => {
-      await this.assertAvailable(tx, dto.itemId, dto.locationId, dto.quantity, item.name);
+      if (item.requiresBatch) {
+        await this.drainBatchesFefo(tx, dto.itemId, dto.locationId, dto.quantity, item.name);
+      } else {
+        await this.assertAvailable(tx, dto.itemId, dto.locationId, dto.quantity, item.name);
+      }
+
       await this.adjustLevel(tx, dto.itemId, dto.locationId, -dto.quantity, organizationId);
 
       return tx.stockMove.create({
@@ -413,6 +445,71 @@ export class InventoryService {
         `Insufficient stock for ${itemName}: need ${quantity}, have ${available}`,
       );
     }
+  }
+
+  /**
+   * Draws down batch-tracked stock first-expiry-first-out.
+   *
+   * Expired batches are excluded outright rather than merely sorted last: a
+   * batch past its date must not reach a patient, and counting it as available
+   * would let a dispense succeed against stock nobody should use.
+   */
+  private async drainBatchesFefo(
+    tx: Prisma.TransactionClient,
+    itemId: string,
+    locationId: string,
+    quantity: number,
+    itemName: string,
+  ) {
+    const batches = await tx.stockBatch.findMany({
+      where: {
+        itemId,
+        locationId,
+        quantity: { gt: 0 },
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { expiresAt: "asc" },
+    });
+
+    const available = batches.reduce((sum, b) => sum + b.quantity, 0);
+    if (available < quantity) {
+      throw new BadRequestException(
+        `Insufficient stock for ${itemName}: need ${quantity}, have ${available}`,
+      );
+    }
+
+    let remaining = quantity;
+    for (const batch of batches) {
+      if (remaining <= 0) break;
+      const take = Math.min(batch.quantity, remaining);
+      await tx.stockBatch.update({
+        where: { id: batch.id },
+        data: { quantity: { decrement: take } },
+      });
+      remaining -= take;
+    }
+  }
+
+  /** Batch-tracked stock on hand, soonest to expire first. */
+  async batches(itemId: string, organizationId: string) {
+    return this.prisma.stockBatch.findMany({
+      where: { itemId, organizationId, quantity: { gt: 0 } },
+      include: { location: { select: { code: true, name: true } } },
+      orderBy: { expiresAt: "asc" },
+    });
+  }
+
+  /** Batches at or past expiry, which must be pulled from the shelf. */
+  async expiringBatches(organizationId: string, withinDays = 60) {
+    const horizon = new Date(Date.now() + withinDays * 86_400_000);
+    return this.prisma.stockBatch.findMany({
+      where: { organizationId, quantity: { gt: 0 }, expiresAt: { lte: horizon } },
+      include: {
+        item: { select: { code: true, name: true, unit: true } },
+        location: { select: { name: true } },
+      },
+      orderBy: { expiresAt: "asc" },
+    });
   }
 
   /** Levels move only here, inside the caller's transaction. */
