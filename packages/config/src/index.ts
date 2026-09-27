@@ -169,6 +169,9 @@ export const PERMISSIONS = {
   // Service catalogue / price list
   CATALOGUE_READ: "catalogue:read",
   CATALOGUE_MANAGE: "catalogue:manage",
+  // Accounting (general ledger)
+  ACCOUNTING_READ: "accounting:read",
+  ACCOUNTING_MANAGE: "accounting:manage",
   // Settings
   SETTINGS_READ: "settings:read",
   SETTINGS_MANAGE: "settings:manage",

@@ -67,6 +67,13 @@ export class BillingService {
       paymentLink: `${webUrl}/billing/payment-callback`,
     });
 
+    // Distinct from invoice.created, which drives patient notification: this
+    // one recognises revenue in the ledger.
+    this.events.emit("invoice.issued", {
+      invoiceId: invoice.id,
+      organizationId,
+    });
+
     return invoice;
   }
 
@@ -160,6 +167,11 @@ export class BillingService {
         data: { amountPaid: toD(amountPaid), status: newStatus as any },
       }),
     ]);
+
+    this.events.emit("payment.received", {
+      paymentId: payment.id,
+      organizationId,
+    });
 
     return payment;
   }

@@ -178,6 +178,9 @@ model Organization {
   admissions    Admission[]
   serviceItems  ServiceItem[]
   charges       Charge[]
+  accounts      Account[]
+  journalEntries JournalEntry[]
+  fiscalPeriods FiscalPeriod[]
   departments   Department[]
   appointments  Appointment[]
   auditLogs     AuditLog[]
@@ -380,6 +383,7 @@ model Staff {
   admissionsAttending      Admission[]       @relation("AdmissionAttending")
   bedAssignmentsMade       BedAssignment[]   @relation("BedAssignedBy")
   chargesCreated           Charge[]          @relation("ChargeCreatedBy")
+  journalEntriesPosted     JournalEntry[]    @relation("JournalPostedBy")
 
   @@index([departmentId])
   @@index([organizationId])
@@ -2775,4 +2779,126 @@ model LabOrderItem {
 
   @@index([labOrderId])
   @@map("lab_order_items")
+}
+
+// ─── Accounting: double-entry ledger ──────────────────────────────────────────
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+enum JournalStatus {
+  DRAFT
+  POSTED
+  REVERSED
+}
+
+/// Source that produced a journal entry, so postings can be traced back.
+enum JournalSource {
+  MANUAL
+  INVOICE
+  PAYMENT
+  REFUND
+  PURCHASE
+  INVENTORY
+  PAYROLL
+  OPENING_BALANCE
+  ADJUSTMENT
+}
+
+/// Chart of accounts. Self-referencing so groups can nest.
+model Account {
+  id             String      @id @default(cuid())
+  code           String
+  name           String
+  type           AccountType
+  parentId       String?
+  description    String?
+  isActive       Boolean     @default(true)
+  /// Postings are only allowed on leaf accounts, never on a group.
+  isPostable     Boolean     @default(true)
+  organizationId String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  parent       Account?      @relation("AccountTree", fields: [parentId], references: [id])
+  children     Account[]     @relation("AccountTree")
+  lines        JournalLine[]
+  organization Organization  @relation(fields: [organizationId], references: [id])
+
+  @@unique([code, organizationId])
+  @@index([organizationId, type])
+  @@map("accounts")
+}
+
+/// A balanced set of debits and credits. Never edited once posted — a mistake
+/// is corrected by a reversing entry, so the trail stays intact.
+model JournalEntry {
+  id             String        @id @default(cuid())
+  entryNumber    String        @unique
+  entryDate      DateTime      @default(now())
+  description    String
+  reference      String?
+  status         JournalStatus @default(POSTED)
+  source         JournalSource @default(MANUAL)
+  sourceId       String?
+  reversesId     String?       @unique
+  postedById     String?
+  organizationId String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  lines        JournalLine[]
+  reverses     JournalEntry?  @relation("Reversal", fields: [reversesId], references: [id])
+  reversedBy   JournalEntry?  @relation("Reversal")
+  postedBy     Staff?         @relation("JournalPostedBy", fields: [postedById], references: [id])
+  organization Organization   @relation(fields: [organizationId], references: [id])
+
+  @@unique([source, sourceId])
+  @@index([organizationId, entryDate])
+  @@index([organizationId, status])
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id             String   @id @default(cuid())
+  journalEntryId String
+  accountId      String
+  debit          Decimal  @default(0) @db.Decimal(14, 2)
+  credit         Decimal  @default(0) @db.Decimal(14, 2)
+  description    String?
+  /// Who the balance is with, for receivables and payables ageing.
+  partnerType    String?
+  partnerId      String?
+  organizationId String
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  account      Account      @relation(fields: [accountId], references: [id])
+
+  @@index([journalEntryId])
+  @@index([accountId])
+  @@index([organizationId, partnerType, partnerId])
+  @@map("journal_lines")
+}
+
+/// Locks a date range once the books are closed.
+model FiscalPeriod {
+  id             String   @id @default(cuid())
+  name           String
+  startDate      DateTime
+  endDate        DateTime
+  isClosed       Boolean  @default(false)
+  closedAt       DateTime?
+  organizationId String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([name, organizationId])
+  @@index([organizationId, startDate])
+  @@map("fiscal_periods")
 }
