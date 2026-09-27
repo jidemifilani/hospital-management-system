@@ -58,7 +58,7 @@ export function PharmacyDashboard() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: rxData, isLoading } = useQuery<{ data: Prescription[]; meta: { total: number } }>({
+  const { data: rxData, isLoading } = useQuery<{ data: Prescription[]; total: number }>({
     queryKey: ["prescriptions", "PENDING"],
     queryFn: () => api.get("/pharmacy/prescriptions", { params: { status: "PENDING", limit: 50 } }).then((r) => r.data),
   });

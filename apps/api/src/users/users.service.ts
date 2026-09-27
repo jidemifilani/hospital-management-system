@@ -119,7 +119,7 @@ export class UsersService {
       }),
       this.prisma.user.count({ where }),
     ]);
-    return { data: items, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
+    return { data: items, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
   async updateStatus(id: string, status: "ACTIVE" | "INACTIVE" | "SUSPENDED", organizationId: string) {

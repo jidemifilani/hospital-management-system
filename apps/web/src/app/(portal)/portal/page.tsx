@@ -38,7 +38,7 @@ export default function PortalHomePage() {
 
   const { data: upcomingAppts } = useQuery({
     queryKey: ["portal-appointments"],
-    queryFn: () => portalApi.get("/portal/appointments?limit=3").then((r) => r.data.items),
+    queryFn: () => portalApi.get("/portal/appointments?limit=3").then((r) => r.data.data),
     enabled: !!patient,
   });
 

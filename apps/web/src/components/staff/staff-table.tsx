@@ -19,7 +19,7 @@ interface StaffMember {
 }
 
 export function StaffTable() {
-  const { data, isLoading } = useQuery<{ items: StaffMember[] }>({
+  const { data, isLoading } = useQuery<{ data: StaffMember[] }>({
     queryKey: ["staff"],
     queryFn: () => api.get("/staff?limit=50").then((r) => r.data),
   });
@@ -36,7 +36,7 @@ export function StaffTable() {
     );
   }
 
-  const staff = data?.items ?? [];
+  const staff = data?.data ?? [];
 
   return (
     <Card className="overflow-hidden">

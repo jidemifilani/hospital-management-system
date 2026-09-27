@@ -23,7 +23,7 @@ export default function PortalAppointmentsPage() {
     queryFn: () => portalApi.get("/portal/appointments?limit=50").then((r) => r.data),
   });
 
-  const items = data?.items ?? [];
+  const items = data?.data ?? [];
 
   return (
     <div className="space-y-6">

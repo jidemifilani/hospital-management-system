@@ -224,7 +224,7 @@ export function ReferralsPage() {
     queryFn: () => api.get("/referrals/summary").then((r: any) => r.data),
   });
 
-  const { data, isLoading } = useQuery<{ data: Referral[]; meta: { total: number } }>({
+  const { data, isLoading } = useQuery<{ data: Referral[]; total: number }>({
     queryKey: ["referrals", search, statusFilter, typeFilter],
     queryFn: () =>
       api.get("/referrals", {
@@ -318,7 +318,7 @@ export function ReferralsPage() {
             <SelectItem value="EXTERNAL">External</SelectItem>
           </SelectContent>
         </Select>
-        {data && <span className="text-sm text-muted-foreground">{data.meta.total} referrals</span>}
+        {data && <span className="text-sm text-muted-foreground">{data.total} referrals</span>}
         <Button variant="outline" size="sm" className="gap-1.5" disabled={referrals.length === 0}
           onClick={() => exportToCsv("referrals", referrals.map((r) => ({
             "Ref #": r.referralNumber,

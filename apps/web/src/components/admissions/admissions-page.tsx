@@ -70,7 +70,7 @@ function AdmitDialog({ onClose }: { onClose: () => void }) {
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
-  const patientList = patients?.items ?? [];
+  const patientList = patients?.data ?? [];
   const doctorList = doctors?.data ?? doctors ?? [];
   const freeBeds = (beds ?? []).filter((b: any) => !b.isOccupied);
 

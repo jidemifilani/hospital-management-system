@@ -82,7 +82,7 @@ export class PortalService {
       this.prisma.appointment.count({ where }),
     ]);
 
-    return { items, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
+    return { data: items, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
   async getLabResults(patientId: string) {

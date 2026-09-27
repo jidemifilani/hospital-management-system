@@ -78,12 +78,12 @@ export function BookAppointmentForm({ defaultPatientId }: { defaultPatientId?: s
   });
 
   const { data: patientsData } = useQuery<{
-    items: { id: string; mrn: string; firstName: string; lastName: string }[];
+    data: { id: string; mrn: string; firstName: string; lastName: string }[];
   }>({
     queryKey: ["patients-list"],
     queryFn: () => api.get("/patients?limit=100").then((r) => r.data),
   });
-  const patients = patientsData?.items ?? [];
+  const patients = patientsData?.data ?? [];
 
   const {
     register,

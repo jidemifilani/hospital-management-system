@@ -64,7 +64,7 @@ export function LabDashboard() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data, isLoading } = useQuery<{ data: LabOrder[]; meta: { total: number } }>({
+  const { data, isLoading } = useQuery<{ data: LabOrder[]; total: number }>({
     queryKey: ["lab-orders", statusFilter],
     queryFn: () =>
       api.get("/lab/orders", {
@@ -116,7 +116,7 @@ export function LabDashboard() {
             ))}
           </SelectContent>
         </Select>
-        {data && <span className="text-sm text-muted-foreground">{data.meta.total} orders</span>}
+        {data && <span className="text-sm text-muted-foreground">{data.total} orders</span>}
         <Button
           variant="outline" size="sm" className="gap-1.5"
           disabled={orders.length === 0}

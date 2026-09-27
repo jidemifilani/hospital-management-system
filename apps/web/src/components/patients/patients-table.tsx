@@ -34,7 +34,7 @@ export function PatientsTable() {
   const q = searchParams.get("q") ?? "";
   const page = Number(searchParams.get("page") ?? "1");
 
-  const { data, isLoading } = useQuery<{ items: Patient[]; total: number; pages: number }>({
+  const { data, isLoading } = useQuery<{ data: Patient[]; total: number; pages: number }>({
     queryKey: ["patients", q, page],
     queryFn: () =>
       api
@@ -54,7 +54,7 @@ export function PatientsTable() {
     );
   }
 
-  const patients = data?.items ?? [];
+  const patients = data?.data ?? [];
 
   function handleExport() {
     exportToCsv(

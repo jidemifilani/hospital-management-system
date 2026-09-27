@@ -79,7 +79,7 @@ function NewEncounterDialog({ onClose }: { onClose: () => void }) {
   });
 
   const deptList = departments?.data ?? departments ?? [];
-  const patientList = patients?.items ?? [];
+  const patientList = patients?.data ?? [];
 
   return (
     <Dialog open onOpenChange={onClose}>

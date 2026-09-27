@@ -187,7 +187,7 @@ export class AppointmentsService {
       this.prisma.appointment.count({ where }),
     ]);
 
-    return { items, total, page, limit, pages: Math.ceil(total / limit) };
+    return { data: items, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
   async findOne(id: string, organizationId: string) {

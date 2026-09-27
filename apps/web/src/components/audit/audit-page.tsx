@@ -46,7 +46,7 @@ export function AuditPage() {
     },
   });
 
-  const items: any[] = data?.items ?? [];
+  const items: any[] = data?.data ?? [];
   const totalPages: number = data?.pages ?? 1;
 
   return (

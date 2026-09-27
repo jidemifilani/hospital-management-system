@@ -89,7 +89,7 @@ export class LeaveService {
       this.prisma.leaveRequest.count({ where }),
     ]);
 
-    return { items, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
+    return { data: items, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
   async findMine(staffId: string, page = 1, limit = 20) {
@@ -109,7 +109,7 @@ export class LeaveService {
       this.prisma.leaveRequest.count({ where }),
     ]);
 
-    return { items, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
+    return { data: items, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
   async review(id: string, approverStaffId: string, organizationId: string, dto: ReviewLeaveDto) {

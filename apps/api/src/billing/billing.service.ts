@@ -107,7 +107,7 @@ export class BillingService {
       this.prisma.invoice.count({ where }),
     ]);
 
-    return { data: items, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
+    return { data: items, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
   async findOne(id: string, organizationId: string) {

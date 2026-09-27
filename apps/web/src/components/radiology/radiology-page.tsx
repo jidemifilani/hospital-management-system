@@ -261,7 +261,7 @@ export function RadiologyPage() {
     queryFn: () => api.get("/radiology/summary").then((r) => r.data),
   });
 
-  const { data, isLoading } = useQuery<{ data: RadiologyOrder[]; meta: { total: number } }>({
+  const { data, isLoading } = useQuery<{ data: RadiologyOrder[]; total: number }>({
     queryKey: ["radiology-orders", search, statusFilter, modalityFilter],
     queryFn: () =>
       api.get("/radiology/orders", {
@@ -357,7 +357,7 @@ export function RadiologyPage() {
             {MODALITIES.map((m) => <SelectItem key={m} value={m}>{MODALITY_LABEL[m]}</SelectItem>)}
           </SelectContent>
         </Select>
-        {data && <span className="text-sm text-muted-foreground">{data.meta.total} orders</span>}
+        {data && <span className="text-sm text-muted-foreground">{data.total} orders</span>}
         <Button
           variant="outline" size="sm" className="gap-1.5"
           disabled={orders.length === 0}

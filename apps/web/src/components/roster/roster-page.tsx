@@ -205,7 +205,7 @@ function AssignShiftDialog({ onClose, onSuccess }: { onClose: () => void; onSucc
 
   const { data: staffList = [] } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
     queryKey: ["staff-list"],
-    queryFn: () => api.get("/staff", { params: { limit: 100 } }).then((r) => r.data?.items ?? []),
+    queryFn: () => api.get("/staff", { params: { limit: 100 } }).then((r) => r.data?.data ?? []),
   });
 
   const { data: deptList = [] } = useQuery<{ id: string; name: string }[]>({

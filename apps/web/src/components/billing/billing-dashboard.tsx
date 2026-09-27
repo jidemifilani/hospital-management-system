@@ -76,7 +76,7 @@ export function BillingDashboard() {
     queryFn: () => api.get("/billing/invoices/daily-summary").then((r) => r.data),
   });
 
-  const { data, isLoading } = useQuery<{ data: Invoice[]; meta: { total: number } }>({
+  const { data, isLoading } = useQuery<{ data: Invoice[]; total: number }>({
     queryKey: ["invoices", search, statusFilter],
     queryFn: () =>
       api.get("/billing/invoices", {
@@ -131,7 +131,7 @@ export function BillingDashboard() {
             ))}
           </SelectContent>
         </Select>
-        {data && <span className="text-sm text-muted-foreground">{data.meta.total} invoices</span>}
+        {data && <span className="text-sm text-muted-foreground">{data.total} invoices</span>}
         <Button
           variant="outline"
           size="sm"

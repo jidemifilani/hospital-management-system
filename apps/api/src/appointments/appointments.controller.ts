@@ -66,7 +66,7 @@ export class AppointmentsController {
   @Get("my-today")
   @RequirePermissions(PERMISSIONS.APPOINTMENTS_READ)
   todayForDoctor(@CurrentUser() user: JwtPayload) {
-    if (!user.staffId) return { items: [] };
+    if (!user.staffId) return { data: [] };
     return this.appointmentsService.getTodayForDoctor(user.staffId, user.organizationId!);
   }
 

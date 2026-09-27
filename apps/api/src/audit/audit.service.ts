@@ -71,6 +71,6 @@ export class AuditService {
       this.prisma.auditLog.count({ where }),
     ]);
 
-    return { items, total, page, limit, pages: Math.ceil(total / limit) };
+    return { data: items, total, page, limit, pages: Math.ceil(total / limit) };
   }
 }

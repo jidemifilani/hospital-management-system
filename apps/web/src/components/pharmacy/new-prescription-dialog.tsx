@@ -175,7 +175,7 @@ export function NewPrescriptionDialog({ onClose }: { onClose: () => void }) {
     },
   });
 
-  const patientList = patients?.items ?? [];
+  const patientList = patients?.data ?? [];
   const drugList = drugs?.data ?? drugs ?? [];
 
   const setItem = (idx: number, patch: Partial<Item>) =>

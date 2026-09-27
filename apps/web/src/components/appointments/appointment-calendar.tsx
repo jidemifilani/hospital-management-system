@@ -51,7 +51,7 @@ export function AppointmentCalendar() {
             limit: 200,
           },
         })
-        .then((r) => r.data.items),
+        .then((r) => r.data.data),
   });
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));

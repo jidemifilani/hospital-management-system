@@ -144,7 +144,7 @@ export class LabService {
       this.prisma.labOrder.count({ where }),
     ]);
 
-    return { data: items, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
+    return { data: items, total, page, limit, pages: Math.ceil(total / limit) };
   }
 
   async findOne(id: string, organizationId: string) {

@@ -53,7 +53,7 @@ export function UsersTable() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const { data, isLoading } = useQuery<{ data: User[]; meta: { total: number } }>({
+  const { data, isLoading } = useQuery<{ data: User[]; total: number }>({
     queryKey: ["users", search],
     queryFn: () =>
       api.get("/users", { params: { search, limit: 50 } }).then((r) => r.data),
@@ -96,7 +96,7 @@ export function UsersTable() {
         </div>
         {data && (
           <span className="text-sm text-muted-foreground">
-            {data.meta.total} users
+            {data.total} users
           </span>
         )}
       </div>

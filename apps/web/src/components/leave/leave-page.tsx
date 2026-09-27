@@ -179,7 +179,7 @@ export function LeavePage() {
     queryFn: () => api.get("/leave/summary").then((r) => r.data),
   });
 
-  const { data, isLoading } = useQuery<{ items: LeaveRequest[]; meta: any }>({
+  const { data, isLoading } = useQuery<{ data: LeaveRequest[]; total: number; pages: number }>({
     queryKey: ["leave-requests", page, statusFilter],
     queryFn: () =>
       api.get("/leave", {
@@ -212,8 +212,9 @@ export function LeavePage() {
     onError: (e: any) => toast.error(e?.response?.data?.message ?? "Failed"),
   });
 
-  const items = data?.items ?? [];
-  const meta = data?.meta;
+  const items = data?.data ?? [];
+  const total = data?.total;
+  const pages = data?.pages ?? 0;
 
   return (
     <div className="space-y-6 p-6">
@@ -245,7 +246,7 @@ export function LeavePage() {
             ))}
           </SelectContent>
         </Select>
-        {meta && <span className="text-xs text-muted-foreground">{meta.total} requests</span>}
+        {total !== undefined && <span className="text-xs text-muted-foreground">{total} requests</span>}
       </div>
 
       <LeaveTable
@@ -256,14 +257,14 @@ export function LeavePage() {
       />
 
       {/* Pagination */}
-      {(meta?.pages ?? 0) > 1 && (
+      {pages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">Page {page} of {meta.pages}</p>
+          <p className="text-xs text-muted-foreground">Page {page} of {pages}</p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
               <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="outline" size="sm" disabled={page >= meta.pages} onClick={() => setPage((p) => p + 1)}>
+            <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           </div>
