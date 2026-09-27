@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Users, CalendarCheck, Bed, Activity,
+  Users, CalendarCheck, Bed, Activity, BedDouble, Receipt,
   FlaskConical, Pill, CreditCard, AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,12 @@ interface DashboardStat {
   pendingPrescriptions: number;
   outstandingInvoices: number;
   lowStockDrugs: number;
+  admittedPatients: number;
+  unbilledCharges: { count: number; total: string };
 }
+
+const naira = (v: string | number) =>
+  `₦${Number(v).toLocaleString("en-NG", { maximumFractionDigits: 0 })}`;
 
 export function DashboardStats() {
   const { data, isError } = useQuery<DashboardStat>({
@@ -60,10 +65,30 @@ export function DashboardStats() {
       title: "Active Encounters",
       value: data?.activeEncounters ?? "—",
       icon: Activity,
-      description: "Patients being seen now",
+      description: "Open episodes of care",
       color: "text-purple-600",
       bg: "bg-purple-50",
-      href: "/appointments",
+      href: "/encounters",
+    },
+    {
+      title: "Admitted Patients",
+      value: data?.admittedPatients ?? "—",
+      icon: BedDouble,
+      description: "Currently on the wards",
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+      href: "/admissions",
+    },
+    {
+      title: "Unbilled Charges",
+      value: data ? naira(data.unbilledCharges.total) : "—",
+      icon: Receipt,
+      description: data
+        ? `${data.unbilledCharges.count} charge(s) not yet invoiced`
+        : "Awaiting invoicing",
+      color: Number(data?.unbilledCharges.total ?? 0) > 0 ? "text-rose-600" : "text-gray-400",
+      bg: Number(data?.unbilledCharges.total ?? 0) > 0 ? "bg-rose-50" : "bg-gray-50",
+      href: "/encounters",
     },
     {
       title: "Pending Lab Orders",

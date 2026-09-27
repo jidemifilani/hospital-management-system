@@ -21,6 +21,8 @@ export class DashboardService {
       pendingPrescriptions,
       outstandingInvoices,
       lowStockCount,
+      admittedPatients,
+      unbilledCharges,
     ] = await Promise.all([
       this.prisma.patient.count({ where: { organizationId, isActive: true, deletedAt: null } }),
       this.prisma.appointment.count({
@@ -32,8 +34,15 @@ export class DashboardService {
         },
       }),
       this.prisma.bed.count({ where: { department: { organizationId }, isOccupied: false } }),
-      this.prisma.appointment.count({
-        where: { organizationId, deletedAt: null, status: "IN_PROGRESS" },
+      // Real open episodes of care. This previously counted appointments with
+      // status IN_PROGRESS, which missed every walk-in, triage arrival and
+      // inpatient, and counted a booking rather than an episode.
+      this.prisma.encounter.count({
+        where: {
+          organizationId,
+          deletedAt: null,
+          status: { in: ["ARRIVED", "TRIAGED", "IN_CONSULTATION", "OBSERVATION", "ADMITTED"] },
+        },
       }),
       this.prisma.patient.count({
         where: {
@@ -68,15 +77,34 @@ export class DashboardService {
           status: { in: ["ISSUED", "PARTIALLY_PAID", "OVERDUE"] },
         },
       }),
-      this.prisma.$queryRaw<{ count: bigint }[]>`
-        SELECT COUNT(DISTINCT di.id)::int AS count
-        FROM "DrugItem" di
-        LEFT JOIN "DrugStock" ds ON ds."drugItemId" = di.id AND ds."deletedAt" IS NULL
-        WHERE di."organizationId" = ${organizationId}
-          AND di."deletedAt" IS NULL
-        GROUP BY di.id, di."reorderLevel"
-        HAVING COALESCE(SUM(ds.quantity), 0) <= di."reorderLevel"
-      `.then((rows) => rows.length).catch(() => 0),
+      // Was raw SQL against "DrugItem"/"DrugStock" with a deletedAt column —
+      // none of which exist (the tables are drug_items/drug_stock). It threw on
+      // every call and a .catch(() => 0) made the tile read zero forever.
+      this.prisma.drugItem
+        .findMany({
+          where: { organizationId, isActive: true },
+          select: {
+            reorderLevel: true,
+            stock: {
+              where: { quantity: { gt: 0 }, expiresAt: { gt: new Date() } },
+              select: { quantity: true },
+            },
+          },
+        })
+        .then(
+          (drugs) =>
+            drugs.filter(
+              (d) => d.stock.reduce((sum, b) => sum + b.quantity, 0) <= d.reorderLevel,
+            ).length,
+        ),
+
+      this.prisma.admission.count({ where: { organizationId, status: "ACTIVE" } }),
+
+      this.prisma.charge.aggregate({
+        where: { organizationId, isBilled: false, isVoided: false },
+        _sum: { total: true },
+        _count: { _all: true },
+      }),
     ]);
 
     return {
@@ -92,6 +120,11 @@ export class DashboardService {
       pendingPrescriptions,
       outstandingInvoices,
       lowStockDrugs: Number(lowStockCount),
+      admittedPatients,
+      unbilledCharges: {
+        count: unbilledCharges._count._all,
+        total: unbilledCharges._sum.total?.toString() ?? "0",
+      },
     };
   }
 

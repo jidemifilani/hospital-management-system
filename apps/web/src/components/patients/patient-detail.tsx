@@ -64,6 +64,17 @@ const APPT_COLOR: Record<string, string> = {
   IN_PROGRESS: "bg-amber-100 text-amber-700",
 };
 
+const ENCOUNTER_COLOR: Record<string, string> = {
+  PLANNED: "bg-slate-100 text-slate-700",
+  ARRIVED: "bg-blue-100 text-blue-700",
+  TRIAGED: "bg-amber-100 text-amber-700",
+  IN_CONSULTATION: "bg-indigo-100 text-indigo-700",
+  OBSERVATION: "bg-purple-100 text-purple-700",
+  ADMITTED: "bg-emerald-100 text-emerald-700",
+  DISCHARGED: "bg-gray-100 text-gray-600",
+  CANCELLED: "bg-red-100 text-red-700",
+};
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export function PatientDetail({ patientId }: { patientId: string }) {
   const [showVitalsForm, setShowVitalsForm] = useState(false);
@@ -76,6 +87,13 @@ export function PatientDetail({ patientId }: { patientId: string }) {
   const { data: summary, isLoading } = useQuery({
     queryKey: ["patient-summary", patientId],
     queryFn: () => api.get(`/emr/patients/${patientId}/summary`).then((r) => r.data),
+  });
+
+  const { data: episodes } = useQuery({
+    queryKey: ["patient-encounters", patientId],
+    queryFn: () =>
+      api.get("/encounters", { params: { patientId, limit: 50 } }).then((r) => r.data),
+    enabled: !!summary,
   });
 
   const { data: vitals = [] } = useQuery<VitalSigns[]>({
@@ -280,8 +298,9 @@ export function PatientDetail({ patientId }: { patientId: string }) {
       )}
 
       <Tabs defaultValue="overview">
-        <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:grid-cols-none lg:flex">
+        <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:grid-cols-none lg:flex">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="episodes">Episodes</TabsTrigger>
           <TabsTrigger value="vitals">Vitals</TabsTrigger>
           <TabsTrigger value="notes">Notes</TabsTrigger>
           <TabsTrigger value="diagnoses">Diagnoses</TabsTrigger>
@@ -374,6 +393,55 @@ export function PatientDetail({ patientId }: { patientId: string }) {
         </TabsContent>
 
         {/* ── VITALS ─────────────────────────────────────────────────────────── */}
+        {/* ── EPISODES OF CARE ───────────────────────────────────────────────── */}
+        <TabsContent value="episodes" className="mt-6">
+          <div className="space-y-3">
+            {(episodes?.data ?? []).length === 0 ? (
+              <EmptyState icon={Stethoscope} label="No episodes of care yet" />
+            ) : (
+              (episodes?.data ?? []).map((e: any) => (
+                <Card key={e.id} className="border-0 shadow-sm">
+                  <CardContent className="flex items-center justify-between p-4">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge className={ENCOUNTER_COLOR[e.status] ?? "bg-gray-100 text-gray-700"}>
+                          {e.status.replace(/_/g, " ")}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {e.type.replace(/_/g, " ")}
+                        </Badge>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {e.encounterNumber}
+                        </span>
+                        {e.admission && (
+                          <Badge variant="outline" className="text-xs">
+                            {e.admission.admissionNumber}
+                          </Badge>
+                        )}
+                      </div>
+                      {e.chiefComplaint && <p className="text-sm font-medium">{e.chiefComplaint}</p>}
+                      <p className="text-xs text-muted-foreground">
+                        {e.department?.name}
+                        {e.attendingDoctor &&
+                          ` · Dr ${e.attendingDoctor.firstName} ${e.attendingDoctor.lastName}`}
+                        {" · "}
+                        {format(new Date(e.startedAt), "dd MMM yyyy, HH:mm")}
+                        {e.endedAt && ` → ${format(new Date(e.endedAt), "dd MMM, HH:mm")}`}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/encounters?patientId=${patientId}`}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      View bill
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+
         <TabsContent value="vitals" className="mt-6">
           <div className="space-y-4">
             {vitals.length === 0 ? (
