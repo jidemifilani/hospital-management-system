@@ -10,9 +10,11 @@ export class AppraisalsService {
   constructor(private prisma: PrismaService) {}
 
   async create(data: any, organizationId: string) {
+    // No catch here: if this lookup fails the database is in trouble, and
+    // swallowing it turned a clear error into a duplicate-key crash on insert.
     const existing = await this.prisma.staffAppraisal.findFirst({
       where: { staffId: data.staffId, period: data.period, year: Number(data.year), quarter: data.quarter ? Number(data.quarter) : null },
-    }).catch(() => null);
+    });
     if (existing) throw new ConflictException("Appraisal already exists for this period");
 
     return this.prisma.staffAppraisal.create({

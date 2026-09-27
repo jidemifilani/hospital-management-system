@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditAction } from "@prisma/client";
@@ -16,6 +16,8 @@ export interface AuditEvent {
 
 @Injectable()
 export class AuditService {
+  private readonly logger = new Logger(AuditService.name);
+
   constructor(private prisma: PrismaService) {}
 
   async log(event: AuditEvent) {
@@ -25,8 +27,15 @@ export class AuditService {
 
   @OnEvent("audit.log")
   handleAuditEvent(event: AuditEvent) {
-    this.log(event).catch(() => {
-      // Audit logging must never crash the main flow
+    // Audit logging must never crash the clinical flow, but a silent failure
+    // is worse than a noisy one: this is a retained compliance record, so a
+    // dropped write has to leave a trace somewhere an operator will see.
+    this.log(event).catch((err) => {
+      this.logger.error(
+        `Audit write failed for ${event.action} on ${event.resource}` +
+          `${event.resourceId ? ` (${event.resourceId})` : ""} by user ${event.userId ?? "unknown"}`,
+        err instanceof Error ? err.stack : err,
+      );
     });
   }
 

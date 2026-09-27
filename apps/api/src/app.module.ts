@@ -59,6 +59,8 @@ import { EncountersModule } from "./encounters/encounters.module";
 import { AdmissionsModule } from "./admissions/admissions.module";
 import { CatalogueModule } from "./catalogue/catalogue.module";
 import { ClinicalSafetyModule } from "./clinical-safety/clinical-safety.module";
+import { APP_INTERCEPTOR } from "@nestjs/core";
+import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 
 @Module({
   imports: [
@@ -136,5 +138,6 @@ import { ClinicalSafetyModule } from "./clinical-safety/clinical-safety.module";
     CatalogueModule,
     ClinicalSafetyModule,
   ],
+  providers: [{ provide: APP_INTERCEPTOR, useClass: AuditInterceptor }],
 })
 export class AppModule {}
