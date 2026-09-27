@@ -6,7 +6,12 @@ const nanoid = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
 const include = {
   patient: { select: { id: true, firstName: true, lastName: true, mrn: true } },
-  dischargingDoctor: { select: { id: true, firstName: true, lastName: true, role: true } },
+  dischargingDoctor: {
+    select: {
+      id: true, firstName: true, lastName: true,
+      user: { select: { role: true } },
+    },
+  },
 } as const;
 
 @Injectable()

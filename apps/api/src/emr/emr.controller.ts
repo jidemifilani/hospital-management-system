@@ -7,6 +7,8 @@ import {
   Param,
   Query,
   UseGuards,
+  DefaultValuePipe,
+  ParseIntPipe,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth, ApiOperation } from "@nestjs/swagger";
 import { EmrService } from "./emr.service";
@@ -49,7 +51,9 @@ export class EmrController {
   getVitals(
     @Param("patientId") id: string,
     @CurrentUser() user: JwtPayload,
-    @Query("limit") limit?: number,
+    // The global transform pipe turns an absent numeric query param into NaN,
+    // which Prisma rejects as a missing `take`.
+    @Query("limit", new DefaultValuePipe(10), ParseIntPipe) limit: number,
   ) {
     return this.emr.getVitalsHistory(id, user.organizationId!, limit);
   }

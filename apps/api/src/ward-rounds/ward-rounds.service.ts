@@ -6,7 +6,12 @@ const nanoid = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
 
 const include = {
   patient: { select: { id: true, firstName: true, lastName: true, mrn: true } },
-  attendingDoctor: { select: { id: true, firstName: true, lastName: true, role: true } },
+  attendingDoctor: {
+    select: {
+      id: true, firstName: true, lastName: true,
+      user: { select: { role: true } },
+    },
+  },
   nurse: { select: { id: true, firstName: true, lastName: true } },
 } as const;
 

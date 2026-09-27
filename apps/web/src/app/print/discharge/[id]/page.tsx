@@ -56,7 +56,9 @@ export default function DischargeSummaryPrint() {
 
   const { data, isLoading } = useQuery<Summary>({
     queryKey: ["discharge-summary", id],
-    queryFn: () => api.get(`/emr/${id}/summary`).then((r) => r.data),
+    // The route is /emr/patients/:patientId/summary. This called /emr/:id/summary,
+    // which 404s — leaving the print page on its spinner indefinitely.
+    queryFn: () => api.get(`/emr/patients/${id}/summary`).then((r) => r.data),
   });
 
   useEffect(() => {
