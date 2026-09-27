@@ -66,6 +66,7 @@ const navItems = [
   { href: "/radiology",    icon: ScanLine,        label: "Radiology",    group: "clinical" },
   { href: "/pharmacy",     icon: Pill,            label: "Pharmacy",     group: "clinical" },
   { href: "/billing",      icon: CreditCard,      label: "Billing",      group: "clinical" },
+  { href: "/pos",          icon: ShoppingCart,    label: "Point of Sale", group: "clinical" },
   { href: "/roster",       icon: CalendarRange,   label: "Roster",       group: "clinical" },
   { href: "/leave",        icon: CalendarOff,     label: "Leave",        group: "clinical" },
   { href: "/referrals",    icon: ArrowRightLeft,  label: "Referrals",    group: "clinical" },

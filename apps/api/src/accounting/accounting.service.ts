@@ -359,7 +359,7 @@ export class AccountingService {
     >();
 
     for (const line of lines) {
-      const id = line.partnerId ?? "unknown";
+      const id = line.partnerId ?? "UNATTRIBUTED";
       const row =
         byPartner.get(id) ??
         ({

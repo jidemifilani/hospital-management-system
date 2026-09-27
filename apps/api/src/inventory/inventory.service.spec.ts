@@ -75,9 +75,11 @@ function build(
     $transaction: jest.fn().mockImplementation((cb: (t: unknown) => unknown) => cb(tx)),
   };
 
-  const service = new InventoryService(prisma as never, {
-    emit: (event: string, payload: unknown) => emitted.push({ event, payload }),
-  } as never);
+  const service = new InventoryService(
+    prisma as never,
+    { emit: (event: string, payload: unknown) => emitted.push({ event, payload }) } as never,
+    { postEntry: jest.fn().mockResolvedValue({ entryNumber: "JE-1" }) } as never,
+  );
 
   return { service, tx, emitted, levelWrites, batchDecrements, average: () => savedAverage };
 }

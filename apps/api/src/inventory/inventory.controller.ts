@@ -132,6 +132,23 @@ export class InventoryController {
     return this.inventory.lowStock(user.organizationId!);
   }
 
+  /** Stock value against the ledger's inventory account. */
+  @Get("reconcile")
+  @RequirePermissions(PERMISSIONS.INVENTORY_READ)
+  reconcile(@CurrentUser() user: JwtPayload) {
+    return this.inventory.reconcileValuation(user.organizationId!);
+  }
+
+  @Post("reconcile/correct")
+  @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
+  correct(@Body("reason") reason: string, @CurrentUser() user: JwtPayload) {
+    return this.inventory.postValuationCorrection(
+      user.organizationId!,
+      reason ?? "Inventory valuation reconciliation",
+      user.staffId,
+    );
+  }
+
   @Get("movements")
   @RequirePermissions(PERMISSIONS.INVENTORY_READ)
   movements(

@@ -4,6 +4,8 @@ import { InventoryCategory, Prisma, StockLocationType, StockMoveType } from "@pr
 import { Decimal } from "@prisma/client/runtime/library";
 import { customAlphabet } from "nanoid";
 import { PrismaService } from "../prisma/prisma.service";
+import { ACCOUNTS } from "../accounting/chart-of-accounts";
+import { AccountingService } from "../accounting/accounting.service";
 
 const genMoveNo = customAlphabet("0123456789", 8);
 
@@ -14,6 +16,7 @@ export class InventoryService {
   constructor(
     private prisma: PrismaService,
     private events: EventEmitter2,
+    private accounting: AccountingService,
   ) {}
 
   // ── Catalogue ──────────────────────────────────────────────────────────────
@@ -501,6 +504,78 @@ export class InventoryService {
       });
       remaining -= take;
     }
+  }
+
+  /**
+   * Compares what the shelves hold against what the ledger says they are
+   * worth. The two drift whenever a movement fails to post, and finding that
+   * at year end is far worse than finding it on a Monday.
+   */
+  async reconcileValuation(organizationId: string) {
+    const [stock, ledger] = await Promise.all([
+      this.stockOnHand(organizationId),
+      this.prisma.journalLine.aggregate({
+        where: {
+          organizationId,
+          account: { code: { in: [ACCOUNTS.INVENTORY_CONSUMABLES, ACCOUNTS.INVENTORY_DRUGS] } },
+          journalEntry: { status: { not: "REVERSED" } },
+        },
+        _sum: { debit: true, credit: true },
+      }),
+    ]);
+
+    const ledgerValue = (ledger._sum.debit ?? new Decimal(0)).sub(
+      ledger._sum.credit ?? new Decimal(0),
+    );
+    const stockValue = new Decimal(stock.totalValue);
+    const variance = ledgerValue.sub(stockValue);
+
+    return {
+      stockValue: stockValue.toString(),
+      ledgerValue: ledgerValue.toString(),
+      variance: variance.toString(),
+      reconciled: variance.isZero(),
+    };
+  }
+
+  /**
+   * Writes the ledger back to what the shelves actually hold.
+   *
+   * Posted as a dated adjustment rather than a silent edit, so the correction
+   * is visible in the accounts and someone can ask why it was needed.
+   */
+  async postValuationCorrection(
+    organizationId: string,
+    reason: string,
+    staffId?: string | null,
+  ) {
+    const { variance, reconciled, stockValue, ledgerValue } =
+      await this.reconcileValuation(organizationId);
+
+    if (reconciled) {
+      throw new BadRequestException("Inventory already reconciles — nothing to correct");
+    }
+
+    const amount = new Decimal(variance).abs();
+    const ledgerIsHigh = new Decimal(variance).greaterThan(0);
+
+    const entry = await this.accounting.postEntry({
+      description: `Inventory valuation correction: ${reason}`,
+      source: "ADJUSTMENT",
+      organizationId,
+      postedById: staffId ?? null,
+      lines: ledgerIsHigh
+        ? [
+            { accountCode: ACCOUNTS.EXP_OTHER, debit: amount.toNumber() },
+            { accountCode: ACCOUNTS.INVENTORY_CONSUMABLES, credit: amount.toNumber() },
+          ]
+        : [
+            { accountCode: ACCOUNTS.INVENTORY_CONSUMABLES, debit: amount.toNumber() },
+            { accountCode: ACCOUNTS.EXP_OTHER, credit: amount.toNumber() },
+          ],
+    });
+
+    return { corrected: variance, stockValue, ledgerValue, entryNumber: entry?.entryNumber };
   }
 
   /** Batch-tracked stock on hand, soonest to expire first. */
