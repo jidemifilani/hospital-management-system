@@ -16,6 +16,7 @@ import {
   Loader2, Plus, Trash2, Palette, ImageIcon, BarChart2,
   Briefcase, CheckSquare, Users, UserCircle, Phone, ChevronDown, ChevronUp,
 } from "lucide-react";
+import { hexToHslStr, isDark } from "@/lib/color";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,31 +38,6 @@ interface SiteContent {
 }
 interface SiteTheme { primaryColor: string; borderRadius: string; fontFamily: string; }
 interface SiteSettings { content: SiteContent; theme: SiteTheme; }
-
-// ─── Hex ↔ HSL helpers ───────────────────────────────────────────────────────
-
-function hexToHslStr(hex: string): string {
-  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!r) return "222 47% 11%";
-  let [rv, gv, bv] = [parseInt(r[1], 16) / 255, parseInt(r[2], 16) / 255, parseInt(r[3], 16) / 255];
-  const max = Math.max(rv, gv, bv), min = Math.min(rv, gv, bv);
-  let h = 0, s = 0; const l = (max + min) / 2;
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    if (max === rv) h = ((gv - bv) / d + (gv < bv ? 6 : 0)) / 6;
-    else if (max === gv) h = ((bv - rv) / d + 2) / 6;
-    else h = ((rv - gv) / d + 4) / 6;
-  }
-  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
-}
-
-function isDark(hex: string): boolean {
-  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  if (!r) return true;
-  const lum = (0.299 * parseInt(r[1], 16) + 0.587 * parseInt(r[2], 16) + 0.114 * parseInt(r[3], 16)) / 255;
-  return lum < 0.5;
-}
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
 
