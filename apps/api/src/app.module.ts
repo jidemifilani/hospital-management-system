@@ -60,6 +60,7 @@ import { AdmissionsModule } from "./admissions/admissions.module";
 import { CatalogueModule } from "./catalogue/catalogue.module";
 import { ClinicalSafetyModule } from "./clinical-safety/clinical-safety.module";
 import { AccountingModule } from "./accounting/accounting.module";
+import { InventoryModule } from "./inventory/inventory.module";
 import { APP_INTERCEPTOR } from "@nestjs/core";
 import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 
@@ -139,6 +140,7 @@ import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
     CatalogueModule,
     ClinicalSafetyModule,
     AccountingModule,
+    InventoryModule,
   ],
   providers: [{ provide: APP_INTERCEPTOR, useClass: AuditInterceptor }],
 })

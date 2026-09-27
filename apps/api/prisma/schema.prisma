@@ -181,6 +181,9 @@ model Organization {
   accounts      Account[]
   journalEntries JournalEntry[]
   fiscalPeriods FiscalPeriod[]
+  stockLocations StockLocation[]
+  inventoryItems InventoryItem[]
+  stockMoves     StockMove[]
   departments   Department[]
   appointments  Appointment[]
   auditLogs     AuditLog[]
@@ -298,6 +301,7 @@ model Department {
   assets        Asset[]
   handovers     ShiftHandover[]
   encounters    Encounter[]
+  stockLocations StockLocation[]
   consultationServiceItem ServiceItem? @relation(fields: [consultationServiceItemId], references: [id])
 
   @@unique([code, organizationId])
@@ -384,6 +388,7 @@ model Staff {
   bedAssignmentsMade       BedAssignment[]   @relation("BedAssignedBy")
   chargesCreated           Charge[]          @relation("ChargeCreatedBy")
   journalEntriesPosted     JournalEntry[]    @relation("JournalPostedBy")
+  stockMovesPerformed      StockMove[]       @relation("StockMoveBy")
 
   @@index([departmentId])
   @@index([organizationId])
@@ -2901,4 +2906,137 @@ model FiscalPeriod {
   @@unique([name, organizationId])
   @@index([organizationId, startDate])
   @@map("fiscal_periods")
+}
+
+// ─── Inventory: locations, items, moves ───────────────────────────────────────
+
+enum StockLocationType {
+  MAIN_STORE
+  WARD
+  THEATRE
+  LABORATORY
+  RADIOLOGY
+  PHARMACY
+  CSSD
+  KITCHEN
+  OTHER
+}
+
+enum InventoryCategory {
+  CONSUMABLE
+  REAGENT
+  SURGICAL
+  LINEN
+  STATIONERY
+  CLEANING
+  SPARE_PART
+  OTHER
+}
+
+enum StockMoveType {
+  RECEIPT
+  ISSUE
+  TRANSFER
+  ADJUSTMENT
+  CONSUMPTION
+  RETURN
+  WRITE_OFF
+}
+
+/// Somewhere stock physically sits. Wards and theatres hold stock too, not
+/// just the main store, which is why issue-to-ward has to be tracked.
+model StockLocation {
+  id             String            @id @default(cuid())
+  code           String
+  name           String
+  type           StockLocationType @default(MAIN_STORE)
+  departmentId   String?
+  isActive       Boolean           @default(true)
+  organizationId String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  department   Department?   @relation(fields: [departmentId], references: [id])
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  levels       StockLevel[]
+  movesOut     StockMove[]   @relation("MoveFrom")
+  movesIn      StockMove[]   @relation("MoveTo")
+
+  @@unique([code, organizationId])
+  @@index([organizationId, type])
+  @@map("stock_locations")
+}
+
+/// A stockable thing that is not a drug. Drugs stay in DrugItem, which carries
+/// its own batch and expiry handling for dispensing.
+model InventoryItem {
+  id             String            @id @default(cuid())
+  code           String
+  name           String
+  category       InventoryCategory @default(CONSUMABLE)
+  unit           String
+  reorderLevel   Int               @default(0)
+  /// Moving average, recalculated on every receipt.
+  averageCost    Decimal           @default(0) @db.Decimal(12, 2)
+  isActive       Boolean           @default(true)
+  organizationId String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  levels       StockLevel[]
+  moves        StockMove[]
+
+  @@unique([code, organizationId])
+  @@index([organizationId, category])
+  @@map("inventory_items")
+}
+
+/// Denormalised on-hand quantity per item per location, kept in step with
+/// moves inside the same transaction so the two can never disagree.
+model StockLevel {
+  id             String   @id @default(cuid())
+  itemId         String
+  locationId     String
+  quantity       Int      @default(0)
+  organizationId String
+  updatedAt      DateTime @updatedAt
+
+  item     InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  location StockLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, locationId])
+  @@index([organizationId])
+  @@map("stock_levels")
+}
+
+/// The append-only record of every movement. Balances are derived from these.
+model StockMove {
+  id             String        @id @default(cuid())
+  moveNumber     String        @unique
+  itemId         String
+  type           StockMoveType
+  quantity       Int
+  fromLocationId String?
+  toLocationId   String?
+  unitCost       Decimal?      @db.Decimal(12, 2)
+  reference      String?
+  reason         String?
+  sourceType     String?
+  sourceId       String?
+  performedById  String?
+  occurredAt     DateTime      @default(now())
+  organizationId String
+  createdAt      DateTime      @default(now())
+
+  item         InventoryItem  @relation(fields: [itemId], references: [id])
+  fromLocation StockLocation? @relation("MoveFrom", fields: [fromLocationId], references: [id])
+  toLocation   StockLocation? @relation("MoveTo", fields: [toLocationId], references: [id])
+  performedBy  Staff?         @relation("StockMoveBy", fields: [performedById], references: [id])
+  organization Organization   @relation(fields: [organizationId], references: [id])
+
+  @@index([itemId])
+  @@index([organizationId, occurredAt])
+  @@index([organizationId, type])
+  @@map("stock_moves")
 }
