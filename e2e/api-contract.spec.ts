@@ -23,6 +23,12 @@ const ENDPOINTS = [
   "/pharmacy/prescriptions", "/radiology/orders", "/referrals", "/rehab",
   "/staff", "/theatre", "/training", "/transport", "/triage", "/users",
   "/visitors", "/ward-rounds",
+  // Accounting, inventory and POS
+  "/accounting/accounts", "/accounting/trial-balance", "/accounting/profit-and-loss",
+  "/accounting/balance-sheet", "/accounting/aging/AR", "/accounting/aging/AP",
+  "/inventory/items", "/inventory/locations", "/inventory/stock",
+  "/inventory/low-stock", "/inventory/movements",
+  "/pos/sales",
 ];
 
 /** Everything that pages must agree on one shape, or consumers read the wrong key. */
@@ -56,6 +62,64 @@ test.describe("API contract the UI depends on", () => {
       }
     }
     expect(wrong, "must page as { data, total, page, limit, pages }").toEqual([]);
+  });
+
+  test("the books balance", async ({ request }) => {
+    const token = await apiToken(request);
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const trial = await (
+      await request.get(`${API_BASE}/accounting/trial-balance`, { headers })
+    ).json();
+    expect(trial.balanced, "trial balance debits must equal credits").toBe(true);
+
+    const sheet = await (
+      await request.get(`${API_BASE}/accounting/balance-sheet`, { headers })
+    ).json();
+    expect(sheet.balanced, "assets must equal liabilities plus equity").toBe(true);
+  });
+
+  test("a stock receipt names the supplier it created a payable for", async ({ request }) => {
+    const token = await apiToken(request);
+    const headers = { Authorization: `Bearer ${token}` };
+    const stamp = Date.now().toString().slice(-6);
+    const supplier = `Contract Supplier ${stamp}`;
+
+    const locations = await (
+      await request.get(`${API_BASE}/inventory/locations`, { headers })
+    ).json();
+    const item = await (
+      await request.post(`${API_BASE}/inventory/items`, {
+        headers,
+        data: { code: `CTR${stamp}`, name: `Contract Item ${stamp}`, unit: "box" },
+      })
+    ).json();
+
+    await request.post(`${API_BASE}/inventory/receive`, {
+      headers,
+      data: {
+        itemId: item.id,
+        locationId: locations[0].id,
+        quantity: 4,
+        unitCost: 1000,
+        supplierName: supplier,
+      },
+    });
+
+    // A payable that cannot name who is owed cannot be chased or paid. Rows
+    // predating supplier capture stay unattributed, so this checks the new
+    // posting rather than the whole ledger.
+    await expect
+      .poll(
+        async () => {
+          const aging = await (
+            await request.get(`${API_BASE}/accounting/aging/AP`, { headers })
+          ).json();
+          return aging.rows.some((r: any) => r.partnerId === supplier);
+        },
+        { timeout: 20_000 },
+      )
+      .toBe(true);
   });
 
   test("patient EMR routes used by the chart and print view resolve", async ({ request }) => {

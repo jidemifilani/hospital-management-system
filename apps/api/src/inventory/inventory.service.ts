@@ -172,6 +172,9 @@ export class InventoryService {
       itemId: dto.itemId,
       quantity: dto.quantity,
       value: new Decimal(dto.unitCost).mul(dto.quantity).toString(),
+      // Carried through so payables can be aged by supplier rather than
+      // collapsing into a single anonymous balance.
+      supplierName: dto.supplierName ?? null,
       organizationId,
     });
 

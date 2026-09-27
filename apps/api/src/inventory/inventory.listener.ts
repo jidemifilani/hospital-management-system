@@ -15,7 +15,12 @@ export class InventoryListener {
   constructor(private accounting: AccountingService) {}
 
   @OnEvent("inventory.received")
-  async onReceived(e: { moveId: string; value: string; organizationId: string }) {
+  async onReceived(e: {
+    moveId: string;
+    value: string;
+    supplierName?: string | null;
+    organizationId: string;
+  }) {
     if (Number(e.value) <= 0) return;
     try {
       await this.accounting.postEntry({
@@ -25,7 +30,14 @@ export class InventoryListener {
         organizationId: e.organizationId,
         lines: [
           { accountCode: ACCOUNTS.INVENTORY_CONSUMABLES, debit: Number(e.value) },
-          { accountCode: ACCOUNTS.AP_SUPPLIERS, credit: Number(e.value), partnerType: "SUPPLIER" },
+          {
+            accountCode: ACCOUNTS.AP_SUPPLIERS,
+            credit: Number(e.value),
+            partnerType: "SUPPLIER",
+            // Without a supplier the whole payable ages as one anonymous
+            // balance, which cannot tell anyone who is owed what.
+            partnerId: e.supplierName ?? "UNSPECIFIED",
+          },
         ],
       });
     } catch (err) {
