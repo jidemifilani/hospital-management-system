@@ -185,6 +185,8 @@ model Organization {
   inventoryItems InventoryItem[]
   stockMoves     StockMove[]
   stockBatches   StockBatch[]
+  posSessions    PosSession[]
+  posSales       PosSale[]
   departments   Department[]
   appointments  Appointment[]
   auditLogs     AuditLog[]
@@ -388,6 +390,8 @@ model Staff {
   chargesCreated           Charge[]          @relation("ChargeCreatedBy")
   journalEntriesPosted     JournalEntry[]    @relation("JournalPostedBy")
   stockMovesPerformed      StockMove[]       @relation("StockMoveBy")
+  posSessions              PosSession[]      @relation("PosCashier")
+  posSales                 PosSale[]         @relation("PosSoldBy")
 
   @@index([departmentId])
   @@index([organizationId])
@@ -459,6 +463,7 @@ model Patient {
   encounters           Encounter[]
   admissions           Admission[]
   charges              Charge[]
+  posSales             PosSale[]
 
   @@index([mrn])
   @@index([phone])
@@ -2595,6 +2600,7 @@ model Encounter {
   theatreBookings  TheatreBooking[]
   rehabSessions    RehabSession[]
   dischargeRecords DischargeRecord[]
+  posSales         PosSale[]
 
   @@index([patientId])
   @@index([organizationId, status])
@@ -2917,6 +2923,7 @@ model StockLocation {
   organization Organization  @relation(fields: [organizationId], references: [id])
   levels       StockLevel[]
   batches      StockBatch[]
+  posSales     PosSale[]
   movesOut     StockMove[]   @relation("MoveFrom")
   movesIn      StockMove[]   @relation("MoveTo")
 
@@ -2951,6 +2958,7 @@ model InventoryItem {
   moves        StockMove[]
   batches      StockBatch[]
   prescItems   PrescriptionItem[]
+  posSaleLines PosSaleLine[]
 
   @@unique([code, organizationId])
   @@index([organizationId, category])
@@ -3029,4 +3037,103 @@ model StockBatch {
   @@index([itemId, expiresAt])
   @@index([organizationId, expiresAt])
   @@map("stock_batches")
+}
+
+// ─── Point of Sale ────────────────────────────────────────────────────────────
+
+enum PosSessionStatus {
+  OPEN
+  CLOSED
+  RECONCILED
+}
+
+enum PosSaleStatus {
+  COMPLETED
+  REFUNDED
+  VOIDED
+}
+
+/// A cashier's shift at a till. Cash is counted in at the start and out at the
+/// end, so a shortfall is attributable to a person and a period.
+model PosSession {
+  id              String           @id @default(cuid())
+  sessionNumber   String           @unique
+  terminalName    String
+  cashierId       String
+  openingFloat    Decimal          @db.Decimal(12, 2)
+  closingCounted  Decimal?         @db.Decimal(12, 2)
+  /// What the till should hold: float plus cash sales less cash refunds.
+  closingExpected Decimal?         @db.Decimal(12, 2)
+  variance        Decimal?         @db.Decimal(12, 2)
+  status          PosSessionStatus @default(OPEN)
+  openedAt        DateTime         @default(now())
+  closedAt        DateTime?
+  notes           String?
+  organizationId  String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  cashier      Staff        @relation("PosCashier", fields: [cashierId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  sales        PosSale[]
+
+  @@index([organizationId, status])
+  @@index([cashierId])
+  @@map("pos_sessions")
+}
+
+/// An over-the-counter sale. Walk-in buyers have no patient record, so
+/// patientId is optional rather than forced.
+model PosSale {
+  id             String        @id @default(cuid())
+  receiptNumber  String        @unique
+  sessionId      String
+  patientId      String?
+  encounterId    String?
+  /// Where the goods left from, so a refund returns them to the same shelf.
+  locationId     String?
+  subtotal       Decimal       @db.Decimal(12, 2)
+  discount       Decimal       @default(0) @db.Decimal(12, 2)
+  tax            Decimal       @default(0) @db.Decimal(12, 2)
+  total          Decimal       @db.Decimal(12, 2)
+  method         PaymentMethod @default(CASH)
+  amountTendered Decimal?      @db.Decimal(12, 2)
+  changeGiven    Decimal?      @db.Decimal(12, 2)
+  status         PosSaleStatus @default(COMPLETED)
+  refundedSaleId String?       @unique
+  soldById       String?
+  soldAt         DateTime      @default(now())
+  organizationId String
+  createdAt      DateTime      @default(now())
+
+  session      PosSession     @relation(fields: [sessionId], references: [id])
+  location     StockLocation? @relation(fields: [locationId], references: [id])
+  patient      Patient?       @relation(fields: [patientId], references: [id])
+  encounter    Encounter?    @relation(fields: [encounterId], references: [id])
+  soldBy       Staff?        @relation("PosSoldBy", fields: [soldById], references: [id])
+  refunds      PosSale?      @relation("PosRefund", fields: [refundedSaleId], references: [id])
+  refundedBy   PosSale?      @relation("PosRefund")
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  lines        PosSaleLine[]
+
+  @@index([organizationId, soldAt])
+  @@index([sessionId])
+  @@map("pos_sales")
+}
+
+model PosSaleLine {
+  id             String  @id @default(cuid())
+  saleId         String
+  itemId         String
+  description    String
+  quantity       Int
+  unitPrice      Decimal @db.Decimal(12, 2)
+  total          Decimal @db.Decimal(12, 2)
+  organizationId String
+
+  sale PosSale       @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  item InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@index([saleId])
+  @@map("pos_sale_lines")
 }

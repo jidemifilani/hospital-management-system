@@ -169,6 +169,10 @@ export const PERMISSIONS = {
   // Service catalogue / price list
   CATALOGUE_READ: "catalogue:read",
   CATALOGUE_MANAGE: "catalogue:manage",
+  // Point of sale
+  POS_READ: "pos:read",
+  POS_SELL: "pos:sell",
+  POS_REFUND: "pos:refund",
   // Inventory (non-drug stock)
   INVENTORY_READ: "inventory:read",
   INVENTORY_MANAGE: "inventory:manage",
