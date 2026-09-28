@@ -32,6 +32,7 @@ import { IncidentsModule } from "./incidents/incidents.module";
 import { BloodBankModule } from "./blood-bank/blood-bank.module";
 import { InsuranceModule } from "./insurance/insurance.module";
 import { HmoModule } from "./hmo/hmo.module";
+import { DocumentsModule } from "./documents/documents.module";
 import { MortuaryModule } from "./mortuary/mortuary.module";
 import { TheatreModule } from "./theatre/theatre.module";
 import { CarePlansModule } from "./care-plans/care-plans.module";
@@ -120,6 +121,7 @@ import { GlobalThrottlerGuard } from "./common/guards/global-throttler.guard";
     BloodBankModule,
     InsuranceModule,
     HmoModule,
+    DocumentsModule,
     MortuaryModule,
     TheatreModule,
     CarePlansModule,

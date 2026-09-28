@@ -62,3 +62,8 @@ e2e/.auth/
 # TypeScript incremental build cache — a build artefact, regenerated on every
 # compile, and it made a diff appear on every branch.
 *.tsbuildinfo
+
+# Uploaded documents. In a real deployment these are patient records — they
+# must never reach version control. The directory itself is created at runtime.
+storage/
+apps/api/storage/

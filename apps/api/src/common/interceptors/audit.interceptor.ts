@@ -28,6 +28,9 @@ const PHI_READ_ROUTES = [
   /\/encounters\/:id$/,
   /\/admissions\/:id$/,
   /\/charges\/encounter\/:encounterId/,
+  // Downloading a patient's scan or letter is a disclosure of their
+  // record, and is the document question an investigation actually asks.
+  /\/documents\/:id\/download$/,
 ];
 
 const SENSITIVE_FIELDS = new Set([
