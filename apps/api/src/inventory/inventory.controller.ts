@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Body, Query, UseGuards } from "@nestjs/common";
 import { InventoryService } from "./inventory.service";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
@@ -6,7 +6,16 @@ import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
 import type { JwtPayload } from "@hms/types";
-import type { InventoryCategory, StockLocationType } from "@prisma/client";
+import type { InventoryCategory } from "@prisma/client";
+import {
+  CreateInventoryItemDto,
+  CreateStockLocationDto,
+  ReceiveStockDto,
+  IssueStockDto,
+  TransferStockDto,
+  StockCountDto,
+  ValuationCorrectionDto,
+} from "./dto/inventory.dto";
 
 @Controller("inventory")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -27,18 +36,7 @@ export class InventoryController {
 
   @Post("items")
   @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
-  createItem(
-    @Body()
-    body: {
-      code: string;
-      name: string;
-      category?: InventoryCategory;
-      unit: string;
-      reorderLevel?: number;
-      averageCost?: number;
-    },
-    @CurrentUser() user: JwtPayload,
-  ) {
+  createItem(@Body() body: CreateInventoryItemDto, @CurrentUser() user: JwtPayload) {
     return this.inventory.createItem(body, user.organizationId!);
   }
 
@@ -50,11 +48,7 @@ export class InventoryController {
 
   @Post("locations")
   @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
-  createLocation(
-    @Body()
-    body: { code: string; name: string; type?: StockLocationType; departmentId?: string },
-    @CurrentUser() user: JwtPayload,
-  ) {
+  createLocation(@Body() body: CreateStockLocationDto, @CurrentUser() user: JwtPayload) {
     return this.inventory.createLocation(body, user.organizationId!);
   }
 
@@ -62,59 +56,25 @@ export class InventoryController {
 
   @Post("receive")
   @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
-  receive(
-    @Body()
-    body: {
-      itemId: string;
-      locationId: string;
-      quantity: number;
-      unitCost: number;
-      reference?: string;
-    },
-    @CurrentUser() user: JwtPayload,
-  ) {
+  receive(@Body() body: ReceiveStockDto, @CurrentUser() user: JwtPayload) {
     return this.inventory.receive(body, user.organizationId!, user.staffId);
   }
 
   @Post("issue")
   @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
-  issue(
-    @Body()
-    body: {
-      itemId: string;
-      locationId: string;
-      quantity: number;
-      type?: "ISSUE" | "CONSUMPTION" | "WRITE_OFF";
-      reason?: string;
-    },
-    @CurrentUser() user: JwtPayload,
-  ) {
+  issue(@Body() body: IssueStockDto, @CurrentUser() user: JwtPayload) {
     return this.inventory.issue(body, user.organizationId!, user.staffId);
   }
 
   @Post("transfer")
   @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
-  transfer(
-    @Body()
-    body: {
-      itemId: string;
-      fromLocationId: string;
-      toLocationId: string;
-      quantity: number;
-      reason?: string;
-    },
-    @CurrentUser() user: JwtPayload,
-  ) {
+  transfer(@Body() body: TransferStockDto, @CurrentUser() user: JwtPayload) {
     return this.inventory.transfer(body, user.organizationId!, user.staffId);
   }
 
   @Post("count")
   @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
-  adjust(
-    @Body()
-    body: { itemId: string; locationId: string; countedQuantity: number; reason: string },
-    @CurrentUser() user: JwtPayload,
-  ) {
+  adjust(@Body() body: StockCountDto, @CurrentUser() user: JwtPayload) {
     return this.inventory.adjust(body, user.organizationId!, user.staffId);
   }
 
@@ -141,10 +101,10 @@ export class InventoryController {
 
   @Post("reconcile/correct")
   @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
-  correct(@Body("reason") reason: string, @CurrentUser() user: JwtPayload) {
+  correct(@Body() body: ValuationCorrectionDto, @CurrentUser() user: JwtPayload) {
     return this.inventory.postValuationCorrection(
       user.organizationId!,
-      reason ?? "Inventory valuation reconciliation",
+      body.reason ?? "Inventory valuation reconciliation",
       user.staffId,
     );
   }

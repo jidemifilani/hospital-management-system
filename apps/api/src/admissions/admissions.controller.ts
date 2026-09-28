@@ -6,6 +6,7 @@ import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
 import type { JwtPayload } from "@hms/types";
+import { AdmitPatientDto, TransferBedDto, DischargeDto } from "./dto/admission.dto";
 import type { AdmissionStatus, AdmissionType, DischargeType } from "@prisma/client";
 
 @Controller("admissions")
@@ -44,22 +45,7 @@ export class AdmissionsController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.ADMISSIONS_MANAGE)
-  admit(
-    @Body()
-    body: {
-      patientId: string;
-      bedId: string;
-      admittingDoctorId: string;
-      departmentId?: string;
-      encounterId?: string;
-      attendingDoctorId?: string;
-      admissionType?: AdmissionType;
-      reason: string;
-      provisionalDiagnosis?: string;
-      expectedDischargeAt?: string;
-    },
-    @CurrentUser() user: JwtPayload,
-  ) {
+  admit(@Body() body: AdmitPatientDto, @CurrentUser() user: JwtPayload) {
     return this.admissions.admit(body, user.organizationId!, user.staffId);
   }
 
@@ -67,7 +53,7 @@ export class AdmissionsController {
   @RequirePermissions(PERMISSIONS.ADMISSIONS_MANAGE)
   transfer(
     @Param("id") id: string,
-    @Body() body: { targetBedId: string; reason?: string },
+    @Body() body: TransferBedDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.admissions.transferBed(id, body, user.organizationId!, user.staffId);
@@ -77,16 +63,7 @@ export class AdmissionsController {
   @RequirePermissions(PERMISSIONS.ADMISSIONS_MANAGE)
   discharge(
     @Param("id") id: string,
-    @Body()
-    body: {
-      dischargeType?: DischargeType;
-      dischargeNotes?: string;
-      followUpDate?: string;
-      followUpInstructions?: string;
-      medicationsOnDischarge?: string;
-      status?: AdmissionStatus;
-      autoInvoice?: boolean;
-    },
+    @Body() body: DischargeDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.admissions.discharge(id, body, user.organizationId!, user.staffId!);

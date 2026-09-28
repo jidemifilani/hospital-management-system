@@ -386,16 +386,39 @@ export class AccountingService {
       byPartner.set(id, row);
     }
 
-    const rows = [...byPartner.values()]
-      .filter((r) => !r.total.isZero())
-      .map((r) => ({
-        partnerId: r.partnerId,
-        current: r.current.toString(),
-        d31_60: r.d31_60.toString(),
-        d61_90: r.d61_90.toString(),
-        d90_plus: r.d90_plus.toString(),
-        total: r.total.toString(),
-      }));
+    const outstanding = [...byPartner.values()].filter((r) => !r.total.isZero());
+
+    // A ledger id is no use to whoever has to chase the debt, so resolve the
+    // partner to something a person can act on. Suppliers are already recorded
+    // by name; patients are recorded by id and have to be looked up.
+    const names = new Map<string, string>();
+    if (kind === "AR") {
+      const ids = outstanding.map((r) => r.partnerId).filter((id) => id !== "UNATTRIBUTED");
+      if (ids.length) {
+        const patients = await this.prisma.patient.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, firstName: true, lastName: true, mrn: true },
+        });
+        for (const p of patients) {
+          names.set(p.id, `${p.firstName} ${p.lastName} (${p.mrn})`);
+        }
+      }
+    }
+
+    const rows = outstanding.map((r) => ({
+      partnerId: r.partnerId,
+      partnerName:
+        r.partnerId === "UNATTRIBUTED"
+          ? "Unattributed"
+          : r.partnerId === "UNSPECIFIED"
+            ? "Supplier not recorded"
+            : (names.get(r.partnerId) ?? r.partnerId),
+      current: r.current.toString(),
+      d31_60: r.d31_60.toString(),
+      d61_90: r.d61_90.toString(),
+      d90_plus: r.d90_plus.toString(),
+      total: r.total.toString(),
+    }));
 
     const totalOf = (key: keyof (typeof rows)[number]) =>
       rows.reduce((acc, r) => acc.add(new Decimal(r[key] as string)), ZERO).toString();

@@ -6,6 +6,7 @@ import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
 import type { JwtPayload } from "@hms/types";
+import { CreateServiceItemDto, UpdateServiceItemDto } from "./dto/service-item.dto";
 import type { ServiceCategory } from "@prisma/client";
 
 @Controller("catalogue")
@@ -42,20 +43,7 @@ export class CatalogueController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.CATALOGUE_MANAGE)
-  create(
-    @Body()
-    body: {
-      code: string;
-      name: string;
-      category: ServiceCategory;
-      unitPrice: number;
-      nhisPrice?: number;
-      hmoPrice?: number;
-      unit?: string;
-      description?: string;
-    },
-    @CurrentUser() user: JwtPayload,
-  ) {
+  create(@Body() body: CreateServiceItemDto, @CurrentUser() user: JwtPayload) {
     return this.catalogue.create(body, user.organizationId!);
   }
 
@@ -63,17 +51,7 @@ export class CatalogueController {
   @RequirePermissions(PERMISSIONS.CATALOGUE_MANAGE)
   update(
     @Param("id") id: string,
-    @Body()
-    body: Partial<{
-      name: string;
-      category: ServiceCategory;
-      unitPrice: number;
-      nhisPrice: number | null;
-      hmoPrice: number | null;
-      unit: string;
-      description: string;
-      isActive: boolean;
-    }>,
+    @Body() body: UpdateServiceItemDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.catalogue.update(id, body, user.organizationId!);

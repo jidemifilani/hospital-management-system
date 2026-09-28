@@ -29,6 +29,8 @@ export class InventoryService {
       unit: string;
       reorderLevel?: number;
       averageCost?: number;
+      /** Only items carrying a price can be rung up at the till. */
+      sellingPrice?: number;
     },
     organizationId: string,
   ) {

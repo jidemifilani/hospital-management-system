@@ -51,6 +51,8 @@ import {
   FilePenLine,
   DoorOpen,
   Globe,
+  PackageSearch,
+  BookOpen,
 } from "lucide-react";
 
 const navItems = [
@@ -78,6 +80,8 @@ const navItems = [
   { href: "/dietary",      icon: Utensils,        label: "Dietary",      group: "clinical" },
   { href: "/triage",       icon: HeartPulse,      label: "Triage",       group: "clinical" },
   { href: "/mortuary",     icon: Bed,             label: "Mortuary",     group: "admin" },
+  { href: "/inventory",    icon: PackageSearch,   label: "Inventory",    group: "admin" },
+  { href: "/accounting",   icon: BookOpen,        label: "Accounting",   group: "admin" },
   { href: "/procurement",  icon: ShoppingCart,    label: "Procurement",  group: "admin" },
   { href: "/assets",       icon: Boxes,           label: "Assets",       group: "admin" },
   { href: "/payroll",      icon: Wallet,          label: "Payroll",      group: "admin" },

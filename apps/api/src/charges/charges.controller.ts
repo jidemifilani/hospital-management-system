@@ -7,6 +7,7 @@ import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
 import type { JwtPayload } from "@hms/types";
+import { PostManualChargeDto, VoidChargeDto } from "./dto/charge.dto";
 
 @Controller("charges")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -38,18 +39,7 @@ export class ChargesController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.CHARGES_MANAGE)
-  postManual(
-    @Body()
-    body: {
-      encounterId: string;
-      serviceItemId?: string;
-      serviceItemCode?: string;
-      description?: string;
-      quantity?: number;
-      unitPrice?: number;
-    },
-    @CurrentUser() user: JwtPayload,
-  ) {
+  postManual(@Body() body: PostManualChargeDto, @CurrentUser() user: JwtPayload) {
     return this.charges.post({
       ...body,
       source: "MANUAL",
@@ -68,9 +58,9 @@ export class ChargesController {
   @RequirePermissions(PERMISSIONS.CHARGES_MANAGE)
   void(
     @Param("id") id: string,
-    @Body("reason") reason: string,
+    @Body() body: VoidChargeDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.charges.void(id, reason, user.organizationId!);
+    return this.charges.void(id, body.reason, user.organizationId!);
   }
 }

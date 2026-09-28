@@ -1,12 +1,17 @@
 import { Controller, Get, Post, Body, Param, Query, UseGuards } from "@nestjs/common";
-import { PosService, SaleLineInput } from "./pos.service";
+import { PosService } from "./pos.service";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
 import type { JwtPayload } from "@hms/types";
-import type { PaymentMethod } from "@prisma/client";
+import {
+  OpenSessionDto,
+  CloseSessionDto,
+  CreateSaleDto,
+  RefundSaleDto,
+} from "./dto/pos.dto";
 
 @Controller("pos")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -23,10 +28,7 @@ export class PosController {
 
   @Post("session/open")
   @RequirePermissions(PERMISSIONS.POS_SELL)
-  open(
-    @Body() body: { terminalName: string; openingFloat: number },
-    @CurrentUser() user: JwtPayload,
-  ) {
+  open(@Body() body: OpenSessionDto, @CurrentUser() user: JwtPayload) {
     return this.pos.openSession(body, user.organizationId!, user.staffId!);
   }
 
@@ -34,7 +36,7 @@ export class PosController {
   @RequirePermissions(PERMISSIONS.POS_SELL)
   close(
     @Param("id") id: string,
-    @Body() body: { closingCounted: number; notes?: string },
+    @Body() body: CloseSessionDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.pos.closeSession(id, body, user.organizationId!);
@@ -50,19 +52,7 @@ export class PosController {
 
   @Post("sales")
   @RequirePermissions(PERMISSIONS.POS_SELL)
-  sell(
-    @Body()
-    body: {
-      sessionId: string;
-      lines: SaleLineInput[];
-      method?: PaymentMethod;
-      patientId?: string;
-      discount?: number;
-      amountTendered?: number;
-      locationId?: string;
-    },
-    @CurrentUser() user: JwtPayload,
-  ) {
+  sell(@Body() body: CreateSaleDto, @CurrentUser() user: JwtPayload) {
     return this.pos.sell(body, user.organizationId!, user.staffId);
   }
 
@@ -70,10 +60,10 @@ export class PosController {
   @RequirePermissions(PERMISSIONS.POS_REFUND)
   refund(
     @Param("id") id: string,
-    @Body("reason") reason: string,
+    @Body() body: RefundSaleDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.pos.refund(id, reason ?? "No reason given", user.organizationId!, user.staffId);
+    return this.pos.refund(id, body.reason, user.organizationId!, user.staffId);
   }
 
   @Get("sales")

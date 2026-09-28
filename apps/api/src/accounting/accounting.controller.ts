@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Param, Query, UseGuards } from "@nestjs/common";
-import { AccountingService, PostLine } from "./accounting.service";
+import { AccountingService } from "./accounting.service";
+import { CreateAccountDto, PostJournalEntryDto } from "./dto/accounting.dto";
 import { ChartSeeder } from "./chart.seeder";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
@@ -30,18 +31,7 @@ export class AccountingController {
 
   @Post("accounts")
   @RequirePermissions(PERMISSIONS.ACCOUNTING_MANAGE)
-  createAccount(
-    @Body()
-    body: {
-      code: string;
-      name: string;
-      type: AccountType;
-      parentId?: string;
-      description?: string;
-      isPostable?: boolean;
-    },
-    @CurrentUser() user: JwtPayload,
-  ) {
+  createAccount(@Body() body: CreateAccountDto, @CurrentUser() user: JwtPayload) {
     return this.accounting.createAccount(body, user.organizationId!);
   }
 
@@ -56,11 +46,7 @@ export class AccountingController {
 
   @Post("entries")
   @RequirePermissions(PERMISSIONS.ACCOUNTING_MANAGE)
-  postEntry(
-    @Body()
-    body: { description: string; lines: PostLine[]; entryDate?: string; reference?: string },
-    @CurrentUser() user: JwtPayload,
-  ) {
+  postEntry(@Body() body: PostJournalEntryDto, @CurrentUser() user: JwtPayload) {
     return this.accounting.postEntry({
       description: body.description,
       lines: body.lines,

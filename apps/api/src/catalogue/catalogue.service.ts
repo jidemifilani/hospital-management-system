@@ -40,8 +40,10 @@ export class CatalogueService {
       name: string;
       category: ServiceCategory;
       unitPrice: number;
-      nhisPrice?: number;
-      hmoPrice?: number;
+      // The form sends null rather than omitting a blank scheme price, and
+      // Prisma stores that as "no special rate for this scheme".
+      nhisPrice?: number | null;
+      hmoPrice?: number | null;
       unit?: string;
       description?: string;
     },
