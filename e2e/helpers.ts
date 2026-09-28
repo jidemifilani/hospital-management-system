@@ -1,4 +1,4 @@
-import { Page, expect, APIRequestContext } from "@playwright/test";
+import { Page, Locator, expect, APIRequestContext } from "@playwright/test";
 
 import path from "path";
 import fs from "fs";
@@ -147,4 +147,84 @@ export async function apiToken(request: APIRequestContext) {
 
 export function uniqueSuffix() {
   return `${Date.now()}`.slice(-6);
+}
+
+/**
+ * The accessible name of every form control inside a scope.
+ *
+ * Computed the way a label lookup resolves one: an explicit aria-label first,
+ * then a label bound by `for`, then a wrapping label, then the placeholder.
+ */
+async function fieldNames(scope: Locator): Promise<{ name: string; tag: string }[]> {
+  return scope
+    .locator('input:not([type="hidden"]), textarea, select')
+    .evaluateAll((elements) =>
+      elements.map((el) => {
+        const node = el as HTMLInputElement;
+        const byAria = node.getAttribute("aria-label");
+        const byFor = node.id
+          ? document.querySelector(`label[for="${CSS.escape(node.id)}"]`)
+          : null;
+        const wrapping = node.closest("label");
+
+        const name =
+          byAria ??
+          (byFor as HTMLElement | null)?.innerText ??
+          (wrapping as HTMLElement | null)?.innerText ??
+          node.getAttribute("placeholder") ??
+          "";
+
+        return { name: name.replace(/\s+/g, " ").trim(), tag: node.type || node.tagName.toLowerCase() };
+      }),
+    );
+}
+
+/**
+ * Fails when one field's name contains another's.
+ *
+ * That is exactly the condition that makes a substring label lookup ambiguous,
+ * and it has bitten this suite twice — a checkbox whose label read "…does not
+ * count as replying to them" answered to "reply" alongside the Reply box, and
+ * the test only discovered it at the moment that line ran. Checking the form
+ * itself catches the problem whether or not a test happens to touch the field,
+ * and a field whose name swallows another's is a confusing form regardless.
+ */
+export async function assertDistinctFieldNames(scope: Locator, where: string) {
+  const all = await fieldNames(scope);
+  const fields = all.filter((f) => f.name.length > 0);
+
+  // A check that found nothing has not passed, it has not run. The first
+  // version of this silently approved a dialog that was still showing its
+  // loading spinner, which is precisely the kind of quiet success it exists
+  // to catch.
+  expect(
+    all.length,
+    `${where}: no form fields were found — the form had not rendered, so nothing was checked`,
+  ).toBeGreaterThan(0);
+
+  expect(
+    fields.length,
+    `${where}: ${all.length} field(s) present but none has a name, so none can be found by label`,
+  ).toBeGreaterThan(0);
+
+  const clashes: string[] = [];
+  for (const a of fields) {
+    for (const b of fields) {
+      if (a === b) continue;
+      const an = a.name.toLowerCase();
+      const bn = b.name.toLowerCase();
+      if (an === bn) {
+        if (a.name < b.name || (a.name === b.name && fields.indexOf(a) < fields.indexOf(b))) {
+          clashes.push(`two ${a.tag} fields are both named "${a.name}"`);
+        }
+      } else if (bn.includes(an)) {
+        clashes.push(`"${b.name}" contains "${a.name}", so a lookup for the shorter matches both`);
+      }
+    }
+  }
+
+  expect(
+    [...new Set(clashes)],
+    `${where}: field names must not overlap, or a label lookup cannot tell them apart`,
+  ).toEqual([]);
 }

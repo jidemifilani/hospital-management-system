@@ -258,12 +258,26 @@ function TicketDialog({ ticketId, onClose }: { ticketId: string; onClose: () => 
                 <Label htmlFor="tk-reply" className="text-xs">Reply</Label>
                 <Textarea id="tk-reply" rows={2} value={reply}
                   onChange={(e) => setReply(e.target.value)} />
-                <label className="flex items-center gap-2 text-xs">
-                  <input type="checkbox" checked={internal}
-                    onChange={(e) => setInternal(e.target.checked)} />
-                  Internal note — not shown to whoever raised this, and does not
-                  count as replying to them
-                </label>
+                {/*
+                  The label names the control and nothing more; the
+                  explanation is a description instead. A whole sentence as the
+                  accessible name made this checkbox collide with the Reply
+                  field above it — both then answered to "reply".
+                */}
+                <div>
+                  <label className="flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={internal}
+                      aria-describedby="tk-internal-hint"
+                      onChange={(e) => setInternal(e.target.checked)}
+                    />
+                    Internal note
+                  </label>
+                  <p id="tk-internal-hint" className="pl-6 text-xs text-muted-foreground">
+                    Not shown to whoever raised this, and does not count as replying to them.
+                  </p>
+                </div>
                 <Button size="sm" disabled={!reply.trim() || comment.isPending}
                   onClick={() => comment.mutate()}>
                   <MessageSquare className="mr-2 h-3 w-3" /> Add
