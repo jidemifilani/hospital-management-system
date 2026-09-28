@@ -9,7 +9,38 @@ export const ADMIN = { email: "admin@hostital.ng", password: "admin123456" };
 export const STORAGE_STATE = path.join(__dirname, ".auth", "admin.json");
 export const API_BASE = process.env.E2E_API_URL ?? "http://localhost:4000/api/v1";
 
+/**
+ * Waits for the API to answer before anything tries to sign in.
+ *
+ * Signing in goes through the web server, which calls the API server-side. If
+ * the API is mid-restart — as it is for a few seconds after any change to it
+ * under `nest --watch` — that call fails, no session is created, and the whole
+ * suite falls over on the first step. This was the intermittent failure: not a
+ * race in the app, just a dev server that had not finished booting.
+ */
+export async function waitForApi(request: APIRequestContext, budgetMs = 60_000) {
+  const deadline = Date.now() + budgetMs;
+  let last = "never answered";
+
+  while (Date.now() < deadline) {
+    try {
+      const res = await request.get(`${API_BASE}/health`, { timeout: 5_000 });
+      if (res.ok()) return;
+      last = `HTTP ${res.status()}`;
+    } catch (err) {
+      last = err instanceof Error ? err.message.split("\n")[0]! : String(err);
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  throw new Error(
+    `The API at ${API_BASE} did not become ready within ${budgetMs}ms (${last}). ` +
+      `Start it with "npm run dev", or wait for it to finish restarting.`,
+  );
+}
+
 export async function login(page: Page) {
+  await waitForApi(page.request);
   await page.goto("/auth/login");
   await page.getByLabel(/email/i).fill(ADMIN.email);
   await page.getByLabel(/password/i).fill(ADMIN.password);
@@ -85,6 +116,8 @@ const TOKEN_TTL_MS = 10 * 60 * 1000;
  * file its own module registry, so an in-process variable would not be shared.
  */
 export async function apiToken(request: APIRequestContext) {
+  await waitForApi(request);
+
   try {
     const cached = JSON.parse(fs.readFileSync(TOKEN_CACHE, "utf8")) as {
       token: string;

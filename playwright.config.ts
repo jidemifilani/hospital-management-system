@@ -24,7 +24,12 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
-    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    // Signing in is the one step that depends on a dev server having finished
+    // booting. It waits for the API first, but an API restart landing mid-flow
+    // still loses the attempt — which is what the old intermittent failure
+    // was. This environmental step may retry; nothing that asserts on product
+    // behaviour does, which is why `retries` stays 0 above.
+    { name: "setup", testMatch: /auth\.setup\.ts/, retries: 2 },
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"], storageState: STORAGE_STATE },

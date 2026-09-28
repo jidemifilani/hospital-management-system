@@ -7,7 +7,14 @@ import { CommandPalette } from "@/components/layout/command-palette";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
-  if (!session) redirect("/auth/login");
+
+  // A session carrying an error is one whose access token could not be
+  // refreshed. It has no user, so it cannot render the shell, and its stale
+  // token would 401 against every endpoint behind it — send them to sign in
+  // again and say why, rather than showing an empty dashboard.
+  if (!session || session.error || !session.user) {
+    redirect(`/auth/login${session?.error ? "?error=SessionExpired" : ""}`);
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

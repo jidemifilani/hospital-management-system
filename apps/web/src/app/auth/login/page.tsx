@@ -3,7 +3,15 @@ import { LoginForm } from "@/components/auth/login-form";
 
 export const metadata: Metadata = { title: "Sign In" };
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams?: { error?: string };
+}) {
+  // Someone sent here by an expired session needs to know that is what
+  // happened; otherwise the sudden return to a login screen looks like a fault.
+  const expired = searchParams?.error === "SessionExpired";
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 to-brand-100 p-4">
       <div className="w-full max-w-md space-y-6">
@@ -16,6 +24,14 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">CareSync HMS</h1>
           <p className="mt-1 text-sm text-muted-foreground">Sign in to your account</p>
         </div>
+        {expired && (
+          <div
+            role="status"
+            className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          >
+            Your session expired and could not be renewed. Please sign in again.
+          </div>
+        )}
         <div className="rounded-2xl bg-card p-8 shadow-lg ring-1 ring-border">
           <LoginForm />
         </div>
