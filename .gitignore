@@ -58,3 +58,7 @@ e2e/artifacts/
 
 # Playwright saved auth session
 e2e/.auth/
+
+# TypeScript incremental build cache — a build artefact, regenerated on every
+# compile, and it made a diff appear on every branch.
+*.tsbuildinfo
