@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from "@nes
 import { Prisma, ChargeSource, ServiceCategory } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { customAlphabet } from "nanoid";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../prisma/prisma.service";
 
 const genInvoiceNo = customAlphabet("0123456789", 8);
@@ -27,7 +28,10 @@ export interface PostChargeInput {
 export class ChargesService {
   private readonly logger = new Logger(ChargesService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private events: EventEmitter2,
+  ) {}
 
   /**
    * Posts a billable event onto an encounter.
@@ -43,7 +47,16 @@ export class ChargesService {
         id: true,
         isBillable: true,
         patientId: true,
-        patient: { select: { nhisNumber: true, hmoProvider: true } },
+        patient: {
+          select: {
+            nhisNumber: true,
+            hmoProvider: true,
+            // Fetched unfiltered on purpose: the price depends on whether any
+            // cover is valid *today*, and a filtered query cannot tell "never
+            // enrolled" from "cover has lapsed". Those need different answers.
+            hmoEnrolments: { select: { status: true, startsAt: true, endsAt: true } },
+          },
+        },
       },
     });
     if (!encounter) throw new NotFoundException("Encounter not found");
@@ -121,12 +134,42 @@ export class ChargesService {
   }
 
   /** NHIS and HMO patients are billed at their scheme's tariff where one exists. */
+  /**
+   * Scheme rates apply only while the patient's cover actually holds.
+   *
+   * A recorded enrolment is authoritative because it carries dates. The
+   * free-text `hmoProvider` on the patient record is honoured only when no
+   * enrolment exists at all, so hospitals that have not yet migrated their
+   * memberships keep working — but once a patient is enrolled, lapsed cover
+   * correctly drops them back to the standard price.
+   */
   private priceFor(
     item: { unitPrice: Decimal; nhisPrice: Decimal | null; hmoPrice: Decimal | null },
-    patient: { nhisNumber: string | null; hmoProvider: string | null },
+    patient: {
+      nhisNumber: string | null;
+      hmoProvider: string | null;
+      hmoEnrolments?: { status: string; startsAt: Date; endsAt: Date | null }[];
+    },
+    asOf = new Date(),
   ): Decimal {
     if (patient.nhisNumber && item.nhisPrice !== null) return item.nhisPrice;
-    if (patient.hmoProvider && item.hmoPrice !== null) return item.hmoPrice;
+
+    const enrolments = patient.hmoEnrolments ?? [];
+    const hmoApplies =
+      enrolments.length > 0
+        ? // Enrolments on file are authoritative: scheme rates hold only while
+          // one of them is actually valid today.
+          enrolments.some(
+            (e) =>
+              e.status === "ACTIVE" &&
+              e.startsAt <= asOf &&
+              (e.endsAt === null || e.endsAt >= asOf),
+          )
+        : // Nothing enrolled yet — fall back to the free-text field so a
+          // hospital that has not migrated its memberships keeps working.
+          Boolean(patient.hmoProvider);
+
+    if (hmoApplies && item.hmoPrice !== null) return item.hmoPrice;
     return item.unitPrice;
   }
 
@@ -184,8 +227,14 @@ export class ChargesService {
   }
 
   /**
-   * Sweeps every unbilled charge on an encounter into a single draft invoice.
+   * Sweeps every unbilled charge on an encounter into a single invoice.
    * This is what turns the running ledger into something a cashier can collect on.
+   *
+   * The `invoice.issued` event at the end is what recognises the revenue and
+   * raises the receivable. Without it these invoices existed only in the
+   * billing tables: 35 of the 36 invoices on this database had never reached
+   * the general ledger, so both income and what patients owed were understated
+   * by everything billed through a clinical encounter.
    */
   async rollIntoInvoice(encounterId: string, organizationId: string, createdById: string) {
     const encounter = await this.prisma.encounter.findFirst({
@@ -204,7 +253,7 @@ export class ChargesService {
 
     const subtotal = pending.reduce((acc, c) => acc.add(c.total), new Decimal(0));
 
-    return this.prisma.$transaction(async (tx) => {
+    const invoice = await this.prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.create({
         data: {
           invoiceNumber: `INV-${genInvoiceNo()}`,
@@ -237,5 +286,11 @@ export class ChargesService {
 
       return invoice;
     });
+
+    // Emitted after the transaction commits, so the listener cannot read an
+    // invoice that is not yet visible to it.
+    this.events.emit("invoice.issued", { invoiceId: invoice.id, organizationId });
+
+    return invoice;
   }
 }

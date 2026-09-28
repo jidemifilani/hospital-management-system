@@ -43,7 +43,14 @@ function build(encounter: Encounter | null, item: unknown = serviceItem()) {
     },
   };
 
-  return { service: new ChargesService(prisma as never), prisma, created };
+  const events = { emit: jest.fn() };
+
+  return {
+    service: new ChargesService(prisma as never, events as never),
+    prisma,
+    events,
+    created,
+  };
 }
 
 const PRIVATE: Encounter = {
