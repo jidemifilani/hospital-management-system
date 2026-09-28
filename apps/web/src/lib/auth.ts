@@ -4,17 +4,39 @@ import CredentialsProvider from "next-auth/providers/credentials";
 
 const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"}/api/v1`;
 
-async function serverPost<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json();
-  if (!res.ok) {
-    const msg = json?.message ?? `HTTP ${res.status}`;
-    throw new Error(msg);
+/** Carries the status so callers can tell "wrong password" from "API is down". */
+class ApiCallError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
   }
+}
+
+async function serverPost<T>(path: string, body: unknown): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // The API was unreachable — a restart, a dropped connection. This is not
+    // a credentials problem and must not be reported as one.
+    throw new ApiCallError("Unreachable", 0);
+  }
+
+  // An error page or an empty body is not JSON; treat that as a server fault
+  // rather than letting the parse failure masquerade as a rejected login.
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    const raw = json?.message;
+    const msg = Array.isArray(raw) ? raw.join(", ") : (raw ?? `HTTP ${res.status}`);
+    throw new ApiCallError(msg, res.status);
+  }
+  if (!json) throw new ApiCallError("Malformed response", res.status);
   return json as T;
 }
 
@@ -27,6 +49,8 @@ declare module "next-auth" {
       role: string;
       accessToken: string;
     };
+    /** Set when the access token could not be refreshed; sign in again. */
+    error?: string;
   }
   interface User {
     id: string;
@@ -45,6 +69,7 @@ declare module "next-auth/jwt" {
     accessToken: string;
     refreshToken: string;
     accessTokenExpires: number;
+    error?: string;
   }
 }
 
@@ -77,7 +102,15 @@ export const authOptions: NextAuthOptions = {
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : "";
           if (message === "MFA_REQUIRED") throw new Error("MFA_REQUIRED");
-          return null;
+
+          const status = err instanceof ApiCallError ? err.status : 0;
+
+          // Only a rejected credential is a credentials problem. Returning
+          // null for everything else told a nurse whose server had restarted
+          // that their password was wrong, and sent them to reset it.
+          if (status === 429) throw new Error("TOO_MANY_ATTEMPTS");
+          if (status === 401 || status === 403) return null;
+          throw new Error("SERVICE_UNAVAILABLE");
         }
       },
     }),
@@ -113,6 +146,13 @@ export const authOptions: NextAuthOptions = {
     },
 
     async session({ session, token }) {
+      // A token whose refresh failed still carries an id, a role and a stale
+      // access token. Copying those through left the app looking signed in
+      // while every API call behind it returned 401 — an empty dashboard with
+      // no prompt to sign in again. Surfacing the error lets the client act.
+      if (token.error) {
+        return { ...session, error: token.error, user: undefined as never };
+      }
       session.user.id = token.id;
       session.user.role = token.role;
       session.user.accessToken = token.accessToken;

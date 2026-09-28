@@ -46,6 +46,18 @@ export function LoginForm() {
       return;
     }
 
+    // Each of these used to read "Invalid credentials", which sent people to
+    // reset a password that was never the problem.
+    if (result?.error === "TOO_MANY_ATTEMPTS") {
+      toast.error("Too many sign-in attempts. Please wait a few minutes and try again.");
+      return;
+    }
+
+    if (result?.error === "SERVICE_UNAVAILABLE") {
+      toast.error("Cannot reach the server right now. Your details were not the problem.");
+      return;
+    }
+
     if (result?.error) {
       toast.error("Invalid credentials. Please check your email and password.");
       return;

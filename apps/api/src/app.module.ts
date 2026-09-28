@@ -62,16 +62,22 @@ import { ClinicalSafetyModule } from "./clinical-safety/clinical-safety.module";
 import { AccountingModule } from "./accounting/accounting.module";
 import { InventoryModule } from "./inventory/inventory.module";
 import { PosModule } from "./pos/pos.module";
-import { APP_INTERCEPTOR } from "@nestjs/core";
+import { APP_INTERCEPTOR, APP_GUARD } from "@nestjs/core";
 import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
+import { GlobalThrottlerGuard } from "./common/guards/global-throttler.guard";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ["../../.env", ".env"] }),
 
+    // One global limit, generous enough for ordinary use — a dashboard load
+    // alone fires half a dozen calls, and every staff login arrives from the
+    // web server's single IP. Login is tightened separately, per account, by
+    // LoginThrottlerGuard: a per-IP login limit would let one attacker lock
+    // out the whole hospital.
     ThrottlerModule.forRootAsync({
       useFactory: () => ({
-        throttlers: [{ ttl: 60_000, limit: 100 }],
+        throttlers: [{ name: "default", ttl: 60_000, limit: 300 }],
       }),
     }),
 
@@ -144,6 +150,12 @@ import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
     InventoryModule,
     PosModule,
   ],
-  providers: [{ provide: APP_INTERCEPTOR, useClass: AuditInterceptor }],
+  providers: [
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+    // ThrottlerModule was imported but its guard was never registered, so the
+    // configured limits did nothing at all: 30 failed logins in a row were
+    // accepted without pause. Registering it here is what makes them real.
+    { provide: APP_GUARD, useClass: GlobalThrottlerGuard },
+  ],
 })
 export class AppModule {}
