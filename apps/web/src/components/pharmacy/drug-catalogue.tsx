@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, PackagePlus, Loader2, AlertTriangle } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +41,7 @@ function AddDrugDialog({ open, onClose, onSuccess }: { open: boolean; onClose: (
       sellingPrice: Number(form.sellingPrice),
     }),
     onSuccess: () => { toast({ title: "Drug added to catalogue" }); onSuccess(); onClose(); },
-    onError: (e: any) => toast({ title: e?.response?.data?.message ?? "Failed", variant: "destructive" }),
+    onError: (e: any) => toast({ title: apiErrorMessage(e, "Failed"), variant: "destructive" }),
   });
 
   const f = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
@@ -116,7 +117,7 @@ function RestockDialog({ drug, onClose, onSuccess }: { drug: DrugItem; onClose: 
       costPerUnit: Number(form.costPerUnit),
     }),
     onSuccess: () => { toast({ title: `Stock received for ${drug.name}` }); onSuccess(); onClose(); },
-    onError: (e: any) => toast({ title: e?.response?.data?.message ?? "Failed", variant: "destructive" }),
+    onError: (e: any) => toast({ title: apiErrorMessage(e, "Failed"), variant: "destructive" }),
   });
 
   return (

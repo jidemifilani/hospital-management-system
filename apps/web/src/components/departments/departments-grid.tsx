@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 
 interface Department {
   id: string;
@@ -51,9 +52,7 @@ function CreateDepartmentDialog({ onSuccess }: { onSuccess: () => void }) {
       toast.success("Department created successfully");
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string | string[] } } })
-        ?.response?.data?.message;
-      toast.error(Array.isArray(msg) ? msg.join(", ") : (msg ?? "Failed to create department"));
+      toast.error(apiErrorMessage(err, "Failed to create department"));
     },
   });
 

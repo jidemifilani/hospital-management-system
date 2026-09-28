@@ -32,6 +32,41 @@ async function choosePatient(page: Page, dialog: any, name: string) {
   await dialog.getByRole("button", { name: new RegExp(name, "i") }).first().click();
 }
 
+/**
+ * Finds a department that actually bills a consultation.
+ *
+ * The automatic consultation charge is only posted when the department has a
+ * consultation service item configured, so picking whichever department
+ * happens to sort first made this test depend on unrelated data — any
+ * department added later with no service item could be chosen, and the charge
+ * would never appear.
+ */
+/** The encounter just opened for this patient. */
+async function currentEncounterId(request: any, token: string, patientId: string) {
+  const res = await request.get(`${API_BASE}/encounters?patientId=${patientId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = await res.json();
+  const list = Array.isArray(body) ? body : (body.data ?? []);
+  return list[0]?.id as string;
+}
+
+async function departmentThatBillsConsultation(request: any, token: string) {
+  const res = await request.get(`${API_BASE}/departments`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const departments = await res.json();
+  const list = Array.isArray(departments) ? departments : (departments.data ?? []);
+  const billing = list.find((d: any) => d.consultationServiceItemId);
+
+  expect(
+    billing,
+    "no department has a consultation service item, so no encounter can carry one",
+  ).toBeTruthy();
+
+  return billing;
+}
+
 test.describe("clinical core screens", () => {
   test("opens an encounter and shows its running bill", async ({ page, request }) => {
     const token = await apiToken(request);
@@ -40,13 +75,16 @@ test.describe("clinical core screens", () => {
     await page.goto("/encounters");
     await expect(page.getByRole("heading", { name: "Encounters", exact: true })).toBeVisible();
 
+    const department = await departmentThatBillsConsultation(request, token);
+
     await page.getByRole("button", { name: /open encounter/i }).click();
     const dialog = page.getByRole("dialog");
     await choosePatient(page, dialog, patient.name);
 
-    // Department is the only required field left.
+    // Department is the only required field left, and it has to be one that
+    // bills a consultation or there is no charge to assert on.
     await dialog.getByRole("combobox").nth(1).click();
-    await page.getByRole("option").first().click();
+    await page.getByRole("option", { name: department.name, exact: true }).click();
 
     await dialog.getByPlaceholder(/fever and headache/i).fill("Cough and fever for 2 days");
     await dialog.getByRole("button", { name: /open encounter/i }).click();
@@ -55,7 +93,25 @@ test.describe("clinical core screens", () => {
     const row = page.getByRole("row").filter({ hasText: patient.name });
     await expect(row).toBeVisible();
 
-    // And its statement already carries the automatic consultation charge.
+    // The consultation charge is posted by a listener, so it lands a moment
+    // after the encounter exists. Wait for it before opening the statement:
+    // the dialog fetches once when opened, so a charge arriving afterwards
+    // would never appear and the assertion below would be about timing rather
+    // than about billing.
+    await expect
+      .poll(
+        async () => {
+          const res = await request.get(`${API_BASE}/charges/encounter/${await currentEncounterId(request, token, patient.id)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok()) return 0;
+          return (await res.json()).length as number;
+        },
+        { timeout: 15_000, intervals: [200, 400, 800] },
+      )
+      .toBeGreaterThan(0);
+
+    // And its statement carries the automatic consultation charge.
     await row.getByRole("button", { name: /view/i }).click();
     const statement = page.getByRole("dialog").filter({ hasText: patient.name });
     await expect(statement.getByText(/consultation/i).first()).toBeVisible();

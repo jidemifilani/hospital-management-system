@@ -8,6 +8,7 @@ import {
   MoreHorizontal, Download,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,7 +90,7 @@ function ReportDialog({ open, onClose, onSuccess }: { open: boolean; onClose: ()
       departmentId: form.departmentId || undefined,
     }),
     onSuccess: () => { toast({ title: "Incident reported" }); onSuccess(); onClose(); },
-    onError: (e: any) => toast({ title: e?.response?.data?.message ?? "Failed", variant: "destructive" }),
+    onError: (e: any) => toast({ title: apiErrorMessage(e, "Failed"), variant: "destructive" }),
   });
 
   return (
@@ -174,7 +175,7 @@ function UpdateSheet({ incident, onClose, onSuccess }: { incident: Incident; onC
       correctiveAction: form.correctiveAction || undefined,
     }),
     onSuccess: () => { toast({ title: "Incident updated" }); onSuccess(); onClose(); },
-    onError: (e: any) => toast({ title: e?.response?.data?.message ?? "Failed", variant: "destructive" }),
+    onError: (e: any) => toast({ title: apiErrorMessage(e, "Failed"), variant: "destructive" }),
   });
 
   return (

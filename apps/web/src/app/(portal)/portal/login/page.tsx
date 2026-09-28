@@ -1,4 +1,5 @@
 "use client";
+import { apiErrorMessage } from "@/lib/api-error";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -26,7 +27,7 @@ export default function PatientLoginPage() {
       localStorage.setItem("portal_patient", JSON.stringify(data.patient));
       router.push("/portal");
     } catch (e: any) {
-      setError(e?.response?.data?.message ?? "Login failed. Check your phone number and date of birth.");
+      setError(apiErrorMessage(e, "Login failed. Check your phone number and date of birth."));
     } finally {
       setLoading(false);
     }

@@ -7,6 +7,7 @@ import {
   UserCheck, UserX, Clock, CalendarDays, Download, Loader2, CheckCircle2,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -55,7 +56,7 @@ function RecordDialog({
   const record = useMutation({
     mutationFn: () => api.post("/attendance/record", { staffId: form.staffId, date: form.date, status: form.status, notes: form.notes || undefined }),
     onSuccess: () => { toast({ title: "Attendance recorded" }); onSuccess(); onClose(); },
-    onError: (e: any) => toast({ title: e?.response?.data?.message ?? "Failed", variant: "destructive" }),
+    onError: (e: any) => toast({ title: apiErrorMessage(e, "Failed"), variant: "destructive" }),
   });
 
   const f = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
@@ -136,13 +137,13 @@ export function AttendancePage() {
   const clockIn = useMutation({
     mutationFn: () => api.post("/attendance/clock-in"),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["attendance"] }); toast({ title: "Clocked in" }); },
-    onError: (e: any) => toast({ title: e?.response?.data?.message ?? "Failed", variant: "destructive" }),
+    onError: (e: any) => toast({ title: apiErrorMessage(e, "Failed"), variant: "destructive" }),
   });
 
   const clockOut = useMutation({
     mutationFn: () => api.post("/attendance/clock-out"),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["attendance"] }); toast({ title: "Clocked out" }); },
-    onError: (e: any) => toast({ title: e?.response?.data?.message ?? "Failed", variant: "destructive" }),
+    onError: (e: any) => toast({ title: apiErrorMessage(e, "Failed"), variant: "destructive" }),
   });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["attendance"] });

@@ -8,6 +8,7 @@ import {
   MoreHorizontal, Loader2, Receipt, Globe, Download, Printer,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { exportToCsv } from "@/lib/csv-export";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,7 +66,7 @@ export function BillingDashboard() {
       const { data } = await api.post(`/billing/invoices/${inv.id}/pay/initiate`);
       window.open(data.authorization_url, "_blank", "noopener,noreferrer");
     } catch (e: any) {
-      toast({ title: e?.response?.data?.message ?? "Payment initiation failed", variant: "destructive" });
+      toast({ title: apiErrorMessage(e, "Payment initiation failed"), variant: "destructive" });
     } finally {
       setInitiating(null);
     }

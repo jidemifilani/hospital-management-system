@@ -8,6 +8,7 @@ import {
   MoreHorizontal, ChevronRight, Download,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { exportToCsv } from "@/lib/csv-export";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,7 +81,7 @@ function AddOrderDialog({ open, onClose, onSuccess }: { open: boolean; onClose: 
       onSuccess();
       onClose();
     },
-    onError: (e: any) => toast({ title: e?.response?.data?.message ?? "Failed", variant: "destructive" }),
+    onError: (e: any) => toast({ title: apiErrorMessage(e, "Failed"), variant: "destructive" }),
   });
 
   function submit() {
@@ -192,7 +193,7 @@ function ReportDialog({ order, onClose, onSuccess }: { order: RadiologyOrder; on
   const submit = useMutation({
     mutationFn: () => api.patch(`/radiology/orders/${order.id}/result`, form),
     onSuccess: () => { toast({ title: "Report saved" }); onSuccess(); onClose(); },
-    onError: (e: any) => toast({ title: e?.response?.data?.message ?? "Failed", variant: "destructive" }),
+    onError: (e: any) => toast({ title: apiErrorMessage(e, "Failed"), variant: "destructive" }),
   });
 
   return (
@@ -281,7 +282,7 @@ export function RadiologyPage() {
       toast({ title: successMsg });
       qc.invalidateQueries({ queryKey: ["radiology-orders"] });
       qc.invalidateQueries({ queryKey: ["radiology-summary"] });
-    }).catch((e: any) => toast({ title: e?.response?.data?.message ?? "Failed", variant: "destructive" }));
+    }).catch((e: any) => toast({ title: apiErrorMessage(e, "Failed"), variant: "destructive" }));
 
   const pending = summary?.byStatus?.find((s: any) => s.status === "PENDING")?._count?.id ?? 0;
   const inProgress = summary?.byStatus?.find((s: any) => s.status === "IN_PROGRESS")?._count?.id ?? 0;

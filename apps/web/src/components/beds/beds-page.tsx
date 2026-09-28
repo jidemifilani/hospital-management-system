@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { BedDouble, Plus, Loader2, UserCheck, UserX, Trash2, LayoutGrid, List, ArrowRightLeft } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -120,7 +121,7 @@ function TransferDialog({ bed, allBeds, onClose }: { bed: Bed; allBeds: Bed[]; o
       toast({ title: `Patient transferred to bed ${allBeds.find((b) => b.id === targetBedId)?.bedNumber}` });
       onClose();
     },
-    onError: (e: any) => toast({ title: e?.response?.data?.message ?? "Transfer failed", variant: "destructive" }),
+    onError: (e: any) => toast({ title: apiErrorMessage(e, "Transfer failed"), variant: "destructive" }),
   });
 
   return (

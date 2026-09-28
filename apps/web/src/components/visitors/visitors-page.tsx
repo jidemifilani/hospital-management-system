@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -116,7 +117,7 @@ function CheckInDialog({ onSuccess }: { onSuccess: () => void }) {
           >
             {mutation.isPending ? "Checking In..." : "Check In"}
           </Button>
-          {mutation.isError && <p className="text-xs text-red-600">{(mutation.error as any)?.response?.data?.message}</p>}
+          {mutation.isError && <p className="text-xs text-red-600">{apiErrorMessage(mutation.error, "Something went wrong")}</p>}
         </div>
       </DialogContent>
     </Dialog>

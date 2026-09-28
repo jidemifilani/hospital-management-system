@@ -8,6 +8,7 @@ import {
   PhoneCall, RefreshCw, ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,7 +82,7 @@ function AddToQueueDialog({
       notes: form.notes || undefined,
     }),
     onSuccess: () => { toast({ title: "Patient added to queue" }); onSuccess(); onClose(); },
-    onError: (e: any) => toast({ title: e?.response?.data?.message ?? "Failed", variant: "destructive" }),
+    onError: (e: any) => toast({ title: apiErrorMessage(e, "Failed"), variant: "destructive" }),
   });
 
   const f = (k: keyof typeof form, v: string) => setForm((p) => ({ ...p, [k]: v }));
@@ -185,7 +186,7 @@ export function OpdQueuePage() {
       qc.invalidateQueries({ queryKey: ["opd-queue"] });
       qc.invalidateQueries({ queryKey: ["opd-summary"] });
     },
-    onError: (e: any) => toast({ title: e?.response?.data?.message ?? "Action failed", variant: "destructive" }),
+    onError: (e: any) => toast({ title: apiErrorMessage(e, "Action failed"), variant: "destructive" }),
   });
 
   const refresh = () => {

@@ -8,6 +8,7 @@ import {
   Loader2, MoreHorizontal, Download,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { exportToCsv } from "@/lib/csv-export";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,7 +84,7 @@ function CreateReferralDialog({ open, onClose, onSuccess }: { open: boolean; onC
       setStep("patient"); setSelectedPatient(null); setPatientSearch("");
       setForm({ type: "INTERNAL", urgency: "ROUTINE", reason: "", notes: "", toDepartmentId: "", toFacility: "" });
     },
-    onError: (e: any) => toast({ title: e?.response?.data?.message ?? "Failed", variant: "destructive" }),
+    onError: (e: any) => toast({ title: apiErrorMessage(e, "Failed"), variant: "destructive" }),
   });
 
   function submit() {
@@ -249,7 +250,7 @@ export function ReferralsPage() {
         qc.invalidateQueries({ queryKey: ["referrals"] });
         qc.invalidateQueries({ queryKey: ["referrals-summary"] });
       })
-      .catch((e: any) => toast({ title: e?.response?.data?.message ?? "Failed", variant: "destructive" }));
+      .catch((e: any) => toast({ title: apiErrorMessage(e, "Failed"), variant: "destructive" }));
   }
 
   const pending = summary?.byStatus?.find((s: any) => s.status === "PENDING")?._count?.id ?? 0;

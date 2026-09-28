@@ -10,6 +10,7 @@ import {
   Loader2, ChevronLeft, ChevronRight, Users, CalendarDays,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -196,7 +197,7 @@ export function LeavePage() {
       reset();
       setShowApply(false);
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Failed to apply"),
+    onError: (e: any) => toast.error(apiErrorMessage(e, "Failed to apply")),
   });
 
   const review = useMutation({
@@ -209,7 +210,7 @@ export function LeavePage() {
       setReviewTarget(null);
       setRejectionNote("");
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message ?? "Failed"),
+    onError: (e: any) => toast.error(apiErrorMessage(e, "Failed")),
   });
 
   const items = data?.data ?? [];

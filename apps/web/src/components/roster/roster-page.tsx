@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { addDays, format, startOfWeek, isSameDay } from "date-fns";
 import { ChevronLeft, ChevronRight, Plus, Loader2, Trash2 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -217,7 +218,7 @@ function AssignShiftDialog({ onClose, onSuccess }: { onClose: () => void; onSucc
     mutationFn: () => api.post("/roster", { staffId, departmentId, date, shiftType, notes: notes || undefined }),
     onSuccess: () => { toast({ title: "Shift assigned" }); onSuccess(); },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      const msg = apiErrorMessage(err, "Something went wrong");
       toast({ title: msg ?? "Failed to assign shift", variant: "destructive" });
     },
   });

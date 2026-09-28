@@ -1,11 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import type { CreateDepartmentDto } from "./dto/department.dto";
 
-export class CreateDepartmentDto {
-  name: string;
-  code: string;
-  description?: string;
-}
 
 @Injectable()
 export class DepartmentsService {
@@ -32,6 +28,10 @@ export class DepartmentsService {
         code: true,
         description: true,
         isActive: true,
+        // Whether a department bills a consultation decides whether opening an
+        // encounter there raises a charge at all. Leaving it out meant no
+        // screen could show which departments are actually configured to bill.
+        consultationServiceItemId: true,
         _count: { select: { staff: true, appointments: true, beds: true } },
       },
     });
