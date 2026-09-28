@@ -205,6 +205,11 @@ model Organization {
   bloodUnits      BloodUnit[]
   bloodRequests   BloodRequest[]
   insuranceClaims InsuranceClaim[]
+  hmoProviders    HmoProvider[]
+  hmoPlans        HmoPlan[]
+  hmoContracts    HmoContract[]
+  hmoEnrolments   HmoEnrolment[]
+  claimLines      InsuranceClaimLine[]
   mortuaryRecords MortuaryRecord[]
   theatreBookings TheatreBooking[]
   carePlans       CarePlan[]
@@ -445,6 +450,7 @@ model Patient {
   incidents        IncidentReport[]
   bloodRequests    BloodRequest[]
   insuranceClaims  InsuranceClaim[]
+  hmoEnrolments    HmoEnrolment[]
   mortuaryRecords  MortuaryRecord[]
   theatreBookings  TheatreBooking[]
   carePlans        CarePlan[]
@@ -1285,6 +1291,150 @@ model BloodRequest {
 
 // ─── Insurance / HMO Claims ───────────────────────────────────────────────────
 
+// ─── HMO contracts, plans and enrolments ──────────────────────────────────────
+
+enum HmoContractStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+enum HmoEnrolmentStatus {
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+}
+
+/// An insurer or HMO the hospital has a relationship with. Claims used to
+/// carry the provider as free text, which made it impossible to total what any
+/// one insurer owed.
+model HmoProvider {
+  id             String   @id @default(cuid())
+  code           String
+  name           String
+  contactName    String?
+  email          String?
+  phone          String?
+  address        String?
+  isActive       Boolean  @default(true)
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  plans        HmoPlan[]
+  contracts    HmoContract[]
+  enrolments   HmoEnrolment[]
+  claims       InsuranceClaim[]
+
+  @@unique([code, organizationId])
+  @@index([organizationId, isActive])
+  @@map("hmo_providers")
+}
+
+/// What a given plan actually covers. The coverage share is what splits a bill
+/// between the insurer and the patient's co-payment.
+model HmoPlan {
+  id              String   @id @default(cuid())
+  providerId      String
+  code            String
+  name            String
+  coveragePercent Decimal  @default(100) @db.Decimal(5, 2)
+  annualLimit     Decimal? @db.Decimal(12, 2)
+  perVisitLimit   Decimal? @db.Decimal(12, 2)
+  requiresPreAuth Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  organizationId  String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  provider     HmoProvider    @relation(fields: [providerId], references: [id])
+  organization Organization   @relation(fields: [organizationId], references: [id])
+  enrolments   HmoEnrolment[]
+
+  @@unique([providerId, code])
+  @@index([organizationId, isActive])
+  @@map("hmo_plans")
+}
+
+/// The agreement between the hospital and the insurer: what terms apply and
+/// for how long.
+model HmoContract {
+  id               String            @id @default(cuid())
+  providerId       String
+  contractNumber   String
+  startsAt         DateTime
+  endsAt           DateTime?
+  paymentTermsDays Int               @default(30)
+  creditLimit      Decimal?          @db.Decimal(12, 2)
+  status           HmoContractStatus @default(DRAFT)
+  notes            String?
+  organizationId   String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  provider     HmoProvider  @relation(fields: [providerId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([contractNumber, organizationId])
+  @@index([organizationId, status])
+  @@map("hmo_contracts")
+}
+
+/// A patient's membership of a plan, with the dates it is valid between.
+/// Without these, cover that lapsed years ago still priced at scheme rates.
+model HmoEnrolment {
+  id             String             @id @default(cuid())
+  patientId      String
+  providerId     String
+  planId         String
+  memberNumber   String
+  startsAt       DateTime
+  endsAt         DateTime?
+  status         HmoEnrolmentStatus @default(ACTIVE)
+  isPrincipal    Boolean            @default(true)
+  organizationId String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  patient      Patient          @relation(fields: [patientId], references: [id])
+  provider     HmoProvider      @relation(fields: [providerId], references: [id])
+  plan         HmoPlan          @relation(fields: [planId], references: [id])
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  claims       InsuranceClaim[]
+
+  @@unique([providerId, memberNumber])
+  @@index([organizationId, status])
+  @@index([patientId])
+  @@map("hmo_enrolments")
+}
+
+/// One billable line of a claim, so an insurer can reject a single item
+/// instead of the whole claim.
+model InsuranceClaimLine {
+  id             String   @id @default(cuid())
+  claimId        String
+  chargeId       String?
+  description    String
+  quantity       Int      @default(1)
+  unitPrice      Decimal  @db.Decimal(12, 2)
+  amount         Decimal  @db.Decimal(12, 2)
+  coveredAmount  Decimal  @db.Decimal(12, 2)
+  patientAmount  Decimal  @db.Decimal(12, 2)
+  approvedAmount Decimal? @db.Decimal(12, 2)
+  rejectionNote  String?
+  organizationId String
+  createdAt      DateTime @default(now())
+
+  claim        InsuranceClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  charge       Charge?        @relation(fields: [chargeId], references: [id])
+  organization Organization   @relation(fields: [organizationId], references: [id])
+
+  @@index([claimId])
+  @@map("insurance_claim_lines")
+}
+
 enum InsuranceClaimStatus {
   DRAFT
   SUBMITTED
@@ -1305,6 +1455,16 @@ model InsuranceClaim {
   preAuthCode     String?
   amount          Decimal              @db.Decimal(12, 2)
   approvedAmount  Decimal?             @db.Decimal(12, 2)
+  /// Set when the claim was raised against the provider registry rather
+  /// than typed as free text.
+  providerId      String?
+  enrolmentId     String?
+  encounterId     String?
+  /// The split at the time of claiming: what the insurer is asked for and
+  /// what the patient owes as co-payment.
+  coveredAmount   Decimal?             @db.Decimal(12, 2)
+  patientPortion  Decimal?             @db.Decimal(12, 2)
+  paidAmount      Decimal?             @db.Decimal(12, 2)
   status          InsuranceClaimStatus @default(DRAFT)
   submittedAt     DateTime?
   reviewedAt      DateTime?
@@ -1315,9 +1475,13 @@ model InsuranceClaim {
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
-  patient      Patient      @relation(fields: [patientId], references: [id])
-  invoice      Invoice?     @relation(fields: [invoiceId], references: [id])
-  organization Organization @relation(fields: [organizationId], references: [id])
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  invoice      Invoice?      @relation(fields: [invoiceId], references: [id])
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  hmoProvider  HmoProvider?  @relation(fields: [providerId], references: [id])
+  enrolment    HmoEnrolment? @relation(fields: [enrolmentId], references: [id])
+  encounter    Encounter?    @relation(fields: [encounterId], references: [id])
+  lines        InsuranceClaimLine[]
 
   @@index([organizationId, status])
   @@index([patientId])
@@ -2591,6 +2755,7 @@ model Encounter {
   radiologyOrders  RadiologyOrder[]
   prescriptions    Prescription[]
   invoices         Invoice[]
+  insuranceClaims  InsuranceClaim[]
   triageRecords    TriageRecord[]
   opdQueues        OpdQueue[]
   dietOrders       DietOrder[]
@@ -2725,6 +2890,7 @@ model Charge {
   invoice      Invoice?     @relation(fields: [invoiceId], references: [id])
   createdBy    Staff?       @relation("ChargeCreatedBy", fields: [createdById], references: [id])
   organization Organization @relation(fields: [organizationId], references: [id])
+  claimLines   InsuranceClaimLine[]
 
   @@unique([source, sourceRef])
   @@index([encounterId])
@@ -2775,6 +2941,9 @@ enum JournalSource {
   PAYROLL
   OPENING_BALANCE
   ADJUSTMENT
+  HMO_CLAIM
+  HMO_SHORTFALL
+  HMO_REMITTANCE
 }
 
 /// Chart of accounts. Self-referencing so groups can nest.

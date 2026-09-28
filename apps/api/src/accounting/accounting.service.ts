@@ -258,9 +258,15 @@ export class AccountingService {
         const movement = debitNormal ? l.debit.sub(l.credit) : l.credit.sub(l.debit);
         running = running.add(movement);
         return {
+          // The id and source are what make a line actionable: without them a
+          // finance officer can see a wrong entry but cannot reverse it.
+          entryId: l.journalEntryId,
           entryNumber: l.journalEntry.entryNumber,
+          source: l.journalEntry.source,
           date: l.journalEntry.entryDate,
           description: l.description ?? l.journalEntry.description,
+          partnerType: l.partnerType,
+          partnerId: l.partnerId,
           debit: l.debit.toString(),
           credit: l.credit.toString(),
           balance: running.toString(),
@@ -337,10 +343,18 @@ export class AccountingService {
     };
   }
 
-  /** Outstanding receivables or payables bucketed by age. */
-  async aging(organizationId: string, kind: "AR" | "AP", asOf = new Date()) {
-    const accountType: AccountType = kind === "AR" ? "ASSET" : "LIABILITY";
-    const partnerType = kind === "AR" ? "PATIENT" : "SUPPLIER";
+  /**
+   * Outstanding receivables or payables bucketed by age.
+   *
+   * "HMO" is its own kind rather than part of "AR": once a claim is submitted
+   * the covered share is owed by the insurer, and totalling it against the
+   * patient — as this did when it only knew about PATIENT partners — hid the
+   * insurer's debt entirely and overstated what patients owed.
+   */
+  async aging(organizationId: string, kind: "AR" | "AP" | "HMO", asOf = new Date()) {
+    const accountType: AccountType = kind === "AP" ? "LIABILITY" : "ASSET";
+    const partnerType =
+      kind === "AP" ? "SUPPLIER" : kind === "HMO" ? "HMO" : "PATIENT";
 
     const lines = await this.prisma.journalLine.findMany({
       where: {
@@ -373,7 +387,7 @@ export class AccountingService {
 
       // Receivables rise with debits, payables with credits.
       const movement =
-        kind === "AR" ? line.debit.sub(line.credit) : line.credit.sub(line.debit);
+        kind === "AP" ? line.credit.sub(line.debit) : line.debit.sub(line.credit);
 
       const ageDays = Math.floor(
         (asOf.getTime() - line.journalEntry.entryDate.getTime()) / 86_400_000,
@@ -392,17 +406,24 @@ export class AccountingService {
     // partner to something a person can act on. Suppliers are already recorded
     // by name; patients are recorded by id and have to be looked up.
     const names = new Map<string, string>();
-    if (kind === "AR") {
-      const ids = outstanding.map((r) => r.partnerId).filter((id) => id !== "UNATTRIBUTED");
-      if (ids.length) {
-        const patients = await this.prisma.patient.findMany({
-          where: { id: { in: ids } },
-          select: { id: true, firstName: true, lastName: true, mrn: true },
-        });
-        for (const p of patients) {
-          names.set(p.id, `${p.firstName} ${p.lastName} (${p.mrn})`);
-        }
+    const ids = outstanding.map((r) => r.partnerId).filter((id) => id !== "UNATTRIBUTED");
+
+    if (kind === "AR" && ids.length) {
+      const patients = await this.prisma.patient.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, firstName: true, lastName: true, mrn: true },
+      });
+      for (const p of patients) {
+        names.set(p.id, `${p.firstName} ${p.lastName} (${p.mrn})`);
       }
+    }
+
+    if (kind === "HMO" && ids.length) {
+      const providers = await this.prisma.hmoProvider.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, name: true, code: true },
+      });
+      for (const p of providers) names.set(p.id, `${p.name} (${p.code})`);
     }
 
     const rows = outstanding.map((r) => ({

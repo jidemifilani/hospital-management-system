@@ -108,17 +108,17 @@ export class AccountingController {
     return this.accounting.balanceSheet(user.organizationId!, parseDate(asOf, new Date()));
   }
 
+  /** AR is owed by patients, HMO by insurers, AP owed to suppliers. */
   @Get("aging/:kind")
   @RequirePermissions(PERMISSIONS.ACCOUNTING_READ)
   aging(
-    @Param("kind") kind: "AR" | "AP",
+    @Param("kind") kind: string,
     @CurrentUser() user: JwtPayload,
     @Query("asOf") asOf?: string,
   ) {
-    return this.accounting.aging(
-      user.organizationId!,
-      kind.toUpperCase() === "AP" ? "AP" : "AR",
-      parseDate(asOf, new Date()),
-    );
+    const normalised = kind.toUpperCase();
+    const which = normalised === "AP" ? "AP" : normalised === "HMO" ? "HMO" : "AR";
+
+    return this.accounting.aging(user.organizationId!, which, parseDate(asOf, new Date()));
   }
 }
