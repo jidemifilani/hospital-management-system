@@ -226,7 +226,8 @@ model Organization {
   ambulances           Ambulance[]
   transports           Transport[]
   marRecords           MARRecord[]
-  maintenanceRequests  MaintenanceRequest[]
+  supportTickets       SupportTicket[]
+  ticketComments       TicketComment[]
   trainingRecords      TrainingRecord[]
   patientAlerts        PatientAlert[]
   shiftHandovers       ShiftHandover[]
@@ -378,8 +379,9 @@ model Staff {
   appraisalsGiven          StaffAppraisal[]  @relation("AppraisalReviewer")
   feedbackResponded        PatientFeedback[] @relation("FeedbackResponder")
   marAdministered          MARRecord[]       @relation("MARAdministeredBy")
-  maintenanceRequested     MaintenanceRequest[] @relation("MaintenanceRequestedBy")
-  maintenanceAssigned      MaintenanceRequest[] @relation("MaintenanceAssignedTo")
+  ticketsRequested         SupportTicket[]      @relation("TicketRequestedBy")
+  ticketsAssigned          SupportTicket[]      @relation("TicketAssignedTo")
+  ticketComments           TicketComment[]      @relation("TicketCommentAuthor")
   trainingRecords          TrainingRecord[]
   alertsCreated            PatientAlert[]    @relation("AlertCreatedBy")
   alertsResolved           PatientAlert[]    @relation("AlertResolvedBy")
@@ -2368,9 +2370,10 @@ model MARRecord {
   @@map("mar_records")
 }
 
-// ─── Maintenance Requests ─────────────────────────────────────────────────────
 
-enum MaintenanceRequestType {
+// ─── Helpdesk ─────────────────────────────────────────────────────────────────
+
+enum TicketCategory {
   CLEANING
   PLUMBING
   ELECTRICAL
@@ -2379,47 +2382,107 @@ enum MaintenanceRequestType {
   PAINTING
   PEST_CONTROL
   IT_SUPPORT
+  MEDICAL_EQUIPMENT
+  SECURITY
   OTHER
 }
 
-enum MaintenanceRequestPriority {
+/// Who picks the ticket up. Routing by team is what stops a broken ventilator
+/// sitting in the same queue as a blocked drain.
+enum TicketTeam {
+  FACILITIES
+  HOUSEKEEPING
+  IT
+  BIOMEDICAL
+  SECURITY
+  GENERAL
+}
+
+enum TicketPriority {
   LOW
   MEDIUM
   HIGH
   URGENT
 }
 
-enum MaintenanceRequestStatus {
+enum TicketStatus {
   OPEN
   ASSIGNED
   IN_PROGRESS
-  COMPLETED
+  ON_HOLD
+  RESOLVED
+  CLOSED
   CANCELLED
 }
 
-model MaintenanceRequest {
-  id              String                     @id @default(cuid())
-  organizationId  String
-  requestNumber   String                     @unique
-  type            MaintenanceRequestType
-  priority        MaintenanceRequestPriority @default(MEDIUM)
-  status          MaintenanceRequestStatus   @default(OPEN)
-  location        String
-  description     String
-  requestedById   String
-  assignedToId    String?
+/// A request for non-clinical help: a fault, a failure, something broken.
+///
+/// This was MaintenanceRequest, which already carried an IT_SUPPORT type — it
+/// was a helpdesk in intent with no way to track a response time or hold a
+/// conversation. Renamed rather than duplicated, because a second ticket table
+/// would mean two places to look for the same kind of problem.
+///
+/// Clinical safety events stay in IncidentReport: those need root cause and
+/// corrective action, not an SLA.
+model SupportTicket {
+  id             String         @id @default(cuid())
+  organizationId String
+  ticketNumber   String         @unique
+  title          String
+  category       TicketCategory
+  team           TicketTeam     @default(GENERAL)
+  priority       TicketPriority @default(MEDIUM)
+  status         TicketStatus   @default(OPEN)
+  location       String
+  description    String
+
+  requestedById String
+  assignedToId  String?
+
+  /// Targets set from the priority when the ticket is raised. Without these
+  /// nothing could say whether a ticket was late, which is the whole point of
+  /// running a desk.
+  respondBy        DateTime
+  resolveBy        DateTime
+  firstRespondedAt DateTime?
+
   resolvedAt      DateTime?
   resolutionNotes String?
-  createdAt       DateTime                   @default(now())
-  updatedAt       DateTime                   @updatedAt
+  closedAt        DateTime?
+  /// A ticket closed and reopened was not really resolved the first time.
+  reopenCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id])
-  requestedBy  Staff        @relation("MaintenanceRequestedBy", fields: [requestedById], references: [id])
-  assignedTo   Staff?       @relation("MaintenanceAssignedTo", fields: [assignedToId], references: [id])
+  requestedBy  Staff        @relation("TicketRequestedBy", fields: [requestedById], references: [id])
+  assignedTo   Staff?       @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
+  comments     TicketComment[]
 
   @@index([organizationId, status])
   @@index([organizationId, priority])
-  @@map("maintenance_requests")
+  @@index([organizationId, team])
+  @@map("support_tickets")
+}
+
+/// The conversation on a ticket. Internal notes are kept apart from what the
+/// person who raised it is told.
+model TicketComment {
+  id             String   @id @default(cuid())
+  ticketId       String
+  body           String
+  isInternal     Boolean  @default(false)
+  authorId       String?
+  organizationId String
+  createdAt      DateTime @default(now())
+
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author       Staff?        @relation("TicketCommentAuthor", fields: [authorId], references: [id])
+  organization Organization  @relation(fields: [organizationId], references: [id])
+
+  @@index([ticketId])
+  @@map("ticket_comments")
 }
 
 // ─── Staff Training & Certifications ──────────────────────────────────────────

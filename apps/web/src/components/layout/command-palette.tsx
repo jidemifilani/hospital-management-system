@@ -19,7 +19,7 @@ import {
   ClipboardList, BedDouble, Settings, Shield, ScanLine, CalendarOff, ArrowRightLeft,
   MonitorDot, UserCheck, AlertTriangle, Droplets, ShieldPlus, Bed, Syringe, ClipboardCheck, ShoppingCart,
   Boxes, Utensils, HeartPulse, Wallet, FileBadge, PersonStanding, Target, MessageSquare, Truck,
-  NotepadText, Wrench, GraduationCap, ShieldAlert, Repeat2, Dumbbell,
+  NotepadText, LifeBuoy, GraduationCap, ShieldAlert, Repeat2, Dumbbell,
   ClipboardPlus, FilePenLine, DoorOpen,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
@@ -59,7 +59,7 @@ const STATIC_PAGES = [
   { href: "/ward-rounds",  label: "Ward Rounds",   icon: ClipboardPlus,   group: "Pages" },
   { href: "/consent",      label: "Consent",       icon: FilePenLine,     group: "Pages" },
   { href: "/discharge",    label: "Discharge",     icon: DoorOpen,        group: "Pages" },
-  { href: "/maintenance",  label: "Maintenance",   icon: Wrench,          group: "Pages" },
+  { href: "/helpdesk",     label: "Helpdesk",      icon: LifeBuoy,        group: "Pages" },
   { href: "/training",     label: "Training",      icon: GraduationCap,   group: "Pages" },
   { href: "/billing",      label: "Billing",       icon: CreditCard,      group: "Pages" },
   { href: "/staff",        label: "Staff",         icon: UserCog,         group: "Pages" },

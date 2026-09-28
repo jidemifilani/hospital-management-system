@@ -47,7 +47,7 @@ import { AppraisalsModule } from "./appraisals/appraisals.module";
 import { FeedbackModule } from "./feedback/feedback.module";
 import { TransportModule } from "./transport/transport.module";
 import { MarModule } from "./mar/mar.module";
-import { MaintenanceModule } from "./maintenance/maintenance.module";
+import { HelpdeskModule } from "./helpdesk/helpdesk.module";
 import { TrainingModule } from "./training/training.module";
 import { AlertsModule } from "./alerts/alerts.module";
 import { HandoverModule } from "./handover/handover.module";
@@ -136,7 +136,7 @@ import { GlobalThrottlerGuard } from "./common/guards/global-throttler.guard";
     FeedbackModule,
     TransportModule,
     MarModule,
-    MaintenanceModule,
+    HelpdeskModule,
     TrainingModule,
     AlertsModule,
     HandoverModule,

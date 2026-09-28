@@ -19,7 +19,7 @@ const ENDPOINTS = [
   "/dashboard/today-appointments", "/departments", "/dietary/orders",
   "/discharge", "/encounters", "/admissions", "/admissions/census", "/feedback",
   "/handover", "/incidents", "/insurance", "/lab/orders", "/leave",
-  "/maintenance", "/opd-queue", "/patients", "/pharmacy/drugs",
+  "/helpdesk", "/opd-queue", "/patients", "/pharmacy/drugs",
   "/pharmacy/prescriptions", "/radiology/orders", "/referrals", "/rehab",
   "/staff", "/theatre", "/training", "/transport", "/triage", "/users",
   "/visitors", "/ward-rounds",
