@@ -66,6 +66,21 @@ export async function login(page: Page) {
     evidence = `callback returned ${res.status()}${reason ? `, error "${reason}"` : ", no error reported"}`;
   }
 
+  // Wait for the session cookie before following the redirect. The app pushes
+  // to /dashboard as soon as sign-in returns, and the dashboard layout asks
+  // the server who you are: arriving a moment before the cookie is stored
+  // sends you straight back to the login page, which is what the occasional
+  // "signed in but the session never committed" failure actually was.
+  await expect
+    .poll(
+      async () =>
+        (await page.context().cookies()).some(
+          (c) => c.name.includes("next-auth.session-token") && c.value.length > 0,
+        ),
+      { timeout: 20_000, intervals: [100, 200, 400] },
+    )
+    .toBe(true);
+
   await page.waitForURL(/\/dashboard/, { timeout: 30_000 }).catch(() => {
     throw new Error(`Sign-in never reached the dashboard — ${evidence}.\n${SIGNIN_HINTS}`);
   });

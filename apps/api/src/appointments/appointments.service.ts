@@ -7,6 +7,7 @@ import {
 import { AppointmentStatus } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { EncountersService } from "../encounters/encounters.service";
+import { RecallService } from "../recall/recall.service";
 import { CreateAppointmentDto } from "./dto/create-appointment.dto";
 import { UpdateAppointmentDto } from "./dto/update-appointment.dto";
 
@@ -38,6 +39,7 @@ export class AppointmentsService {
   constructor(
     private prisma: PrismaService,
     private encounters: EncountersService,
+    private recall: RecallService,
   ) {}
 
   /**
@@ -213,11 +215,21 @@ export class AppointmentsService {
       throw new BadRequestException("Cancel reason is required");
     }
 
-    return this.prisma.appointment.update({
+    const updated = await this.prisma.appointment.update({
       where: { id },
       data: { ...dto, updatedById },
       select: APPOINTMENT_SELECT,
     });
+
+    // A cancelled visit does not cancel the reason for it. If this
+    // appointment was booked to close a follow-up, that follow-up goes back
+    // on the worklist rather than sitting as "booked" for a visit that will
+    // never happen.
+    if (dto.status === "CANCELLED") {
+      await this.recall.releaseCancelledAppointment(id, organizationId);
+    }
+
+    return updated;
   }
 
   async getTodayForDoctor(doctorId: string, organizationId: string) {

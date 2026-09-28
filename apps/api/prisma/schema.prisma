@@ -227,6 +227,8 @@ model Organization {
   transports           Transport[]
   marRecords           MARRecord[]
   supportTickets       SupportTicket[]
+  patientRecalls       PatientRecall[]
+  outreachAttempts     OutreachAttempt[]
   ticketComments       TicketComment[]
   trainingRecords      TrainingRecord[]
   patientAlerts        PatientAlert[]
@@ -380,6 +382,8 @@ model Staff {
   feedbackResponded        PatientFeedback[] @relation("FeedbackResponder")
   marAdministered          MARRecord[]       @relation("MARAdministeredBy")
   ticketsRequested         SupportTicket[]      @relation("TicketRequestedBy")
+  recallsAssigned          PatientRecall[]      @relation("RecallAssignedTo")
+  outreachAttempts         OutreachAttempt[]    @relation("OutreachContactedBy")
   ticketsAssigned          SupportTicket[]      @relation("TicketAssignedTo")
   ticketComments           TicketComment[]      @relation("TicketCommentAuthor")
   trainingRecords          TrainingRecord[]
@@ -455,6 +459,7 @@ model Patient {
   bloodRequests    BloodRequest[]
   insuranceClaims  InsuranceClaim[]
   hmoEnrolments    HmoEnrolment[]
+  recalls          PatientRecall[]
   documents        Document[]
   mortuaryRecords  MortuaryRecord[]
   theatreBookings  TheatreBooking[]
@@ -520,6 +525,7 @@ model Appointment {
   radiologyOrders RadiologyOrder[]
   referrals       Referral[]
   encounters      Encounter[]
+  recall          PatientRecall?
 
   @@index([patientId])
   @@index([doctorId])
@@ -2370,6 +2376,104 @@ model MARRecord {
   @@map("mar_records")
 }
 
+
+// ─── Patient recall and outreach ──────────────────────────────────────────────
+
+enum RecallSource {
+  DISCHARGE
+  WARD_ROUND
+  MANUAL
+  PROTOCOL
+}
+
+enum RecallStatus {
+  DUE
+  BOOKED
+  ATTENDED
+  MISSED
+  CANCELLED
+}
+
+enum OutreachChannel {
+  PHONE
+  SMS
+  EMAIL
+  IN_PERSON
+}
+
+enum OutreachOutcome {
+  REACHED
+  NO_ANSWER
+  WRONG_NUMBER
+  DECLINED
+  RESCHEDULED
+}
+
+/// A patient who has been told to come back.
+///
+/// Discharge summaries and ward rounds have always recorded a followUpDate,
+/// and nothing has ever read one: the date was written and the patient was
+/// never recalled. This gives that date somewhere to live, so a follow-up
+/// nobody attended is visible rather than silently missed.
+model PatientRecall {
+  id           String       @id @default(cuid())
+  recallNumber String
+  patientId    String
+  reason       String
+  instructions String?
+  dueOn        DateTime
+  source       RecallSource @default(MANUAL)
+  /// The discharge record or ward round this came from, so the same event
+  /// cannot raise the same follow-up twice.
+  sourceRef    String?
+  status       RecallStatus @default(DUE)
+
+  /// Set once a visit is actually booked. Unique, so two recalls cannot claim
+  /// the same appointment.
+  appointmentId String? @unique
+
+  assignedToId String?
+  attendedAt   DateTime?
+  closedAt     DateTime?
+  closeReason  String?
+
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  patient      Patient           @relation(fields: [patientId], references: [id])
+  appointment  Appointment?      @relation(fields: [appointmentId], references: [id])
+  assignedTo   Staff?            @relation("RecallAssignedTo", fields: [assignedToId], references: [id])
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  attempts     OutreachAttempt[]
+
+  @@unique([recallNumber, organizationId])
+  @@unique([source, sourceRef])
+  @@index([organizationId, status])
+  @@index([organizationId, dueOn])
+  @@index([patientId])
+  @@map("patient_recalls")
+}
+
+/// Every attempt to reach the patient, so "we tried three times" is evidence
+/// rather than a claim.
+model OutreachAttempt {
+  id             String          @id @default(cuid())
+  recallId       String
+  channel        OutreachChannel
+  outcome        OutreachOutcome
+  note           String?
+  contactedById  String?
+  organizationId String
+  createdAt      DateTime        @default(now())
+
+  recall       PatientRecall @relation(fields: [recallId], references: [id], onDelete: Cascade)
+  contactedBy  Staff?        @relation("OutreachContactedBy", fields: [contactedById], references: [id])
+  organization Organization  @relation(fields: [organizationId], references: [id])
+
+  @@index([recallId])
+  @@map("outreach_attempts")
+}
 
 // ─── Helpdesk ─────────────────────────────────────────────────────────────────
 

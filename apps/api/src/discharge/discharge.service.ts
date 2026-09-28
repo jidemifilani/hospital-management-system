@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { RecallService } from "../recall/recall.service";
 import { customAlphabet } from "nanoid";
 
 const nanoid = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 8);
@@ -16,10 +17,13 @@ const include = {
 
 @Injectable()
 export class DischargeService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private recall: RecallService,
+  ) {}
 
   async create(data: any, staffId: string, organizationId: string) {
-    return this.prisma.dischargeRecord.create({
+    const record = await this.prisma.dischargeRecord.create({
       data: {
         dischargeNumber: `DIS-${nanoid()}`,
         organizationId,
@@ -35,6 +39,32 @@ export class DischargeService {
       },
       include,
     });
+
+    // A follow-up date used to be written here and read by nothing at all,
+    // so the patient was never actually recalled.
+    await this.raiseRecallFor(record, organizationId);
+
+    return record;
+  }
+
+  /** Puts a recorded follow-up date onto the recall worklist. */
+  private async raiseRecallFor(
+    record: { id: string; patientId: string; followUpDate: Date | null; followUpInstructions: string | null },
+    organizationId: string,
+  ) {
+    if (!record.followUpDate) return;
+
+    await this.recall.raiseQuietly(
+      {
+        patientId: record.patientId,
+        reason: "Follow-up after discharge",
+        instructions: record.followUpInstructions ?? undefined,
+        dueOn: record.followUpDate,
+        source: "DISCHARGE",
+        sourceRef: record.id,
+      },
+      organizationId,
+    );
   }
 
   async findAll(q: any, organizationId: string) {
@@ -64,7 +94,8 @@ export class DischargeService {
   async complete(id: string, data: any, organizationId: string) {
     const record = await this.findOne(id, organizationId);
     if (record.status === "COMPLETED") throw new BadRequestException("Already completed");
-    return this.prisma.dischargeRecord.update({
+
+    const completed = await this.prisma.dischargeRecord.update({
       where: { id },
       data: {
         status: "COMPLETED",
@@ -76,6 +107,13 @@ export class DischargeService {
       },
       include,
     });
+
+    // Completing is where the follow-up date is usually settled, so the
+    // recall is raised here too; raising it twice for the same record is
+    // refused by the (source, sourceRef) pair rather than by luck.
+    await this.raiseRecallFor(completed, organizationId);
+
+    return completed;
   }
 
   async cancel(id: string, organizationId: string) {

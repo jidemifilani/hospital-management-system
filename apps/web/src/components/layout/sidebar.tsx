@@ -52,6 +52,7 @@ import {
   DoorOpen,
   Globe,
   PackageSearch,
+  PhoneCall,
   FolderOpen,
   BookOpen,
 } from "lucide-react";
@@ -60,6 +61,7 @@ const navItems = [
   { href: "/dashboard",    icon: LayoutDashboard, label: "Dashboard",    group: "core" },
   { href: "/patients",     icon: Users,           label: "Patients",     group: "core" },
   { href: "/appointments", icon: CalendarDays,    label: "Appointments", group: "core" },
+  { href: "/recalls",      icon: PhoneCall,       label: "Patient Recall", group: "core" },
   { href: "/encounters",   icon: Stethoscope,     label: "Encounters",   group: "core" },
   { href: "/admissions",   icon: BedDouble,       label: "Admissions",   group: "core" },
   { href: "/beds",         icon: BedDouble,       label: "Beds",         group: "core" },
