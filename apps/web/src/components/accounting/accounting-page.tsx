@@ -299,10 +299,15 @@ export function AccountingPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  const { data: accounts = [] } = useQuery({
+  // `isLoading` matters here, not just the data. Falling back to an empty
+  // array and testing its length told a hospital with a full ledger that it
+  // had "no chart of accounts yet", and offered to install one, for as long as
+  // the request was in flight.
+  const { data: accounts = [], isLoading: accountsLoading } = useQuery({
     queryKey: ["acc-accounts"],
     queryFn: async () => (await api.get("/accounting/accounts")).data,
   });
+  const hasNoChart = !accountsLoading && accounts.length === 0;
 
   const seed = useMutation({
     mutationFn: () => api.post("/accounting/accounts/seed-default", {}),
@@ -327,7 +332,7 @@ export function AccountingPage() {
             The general ledger behind billing, stock and the till.
           </p>
         </div>
-        {accounts.length === 0 && (
+        {hasNoChart && (
           <Button onClick={() => seed.mutate()} disabled={seed.isPending}>
             {seed.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Scale className="mr-2 h-4 w-4" /> Install Chart of Accounts
@@ -335,7 +340,11 @@ export function AccountingPage() {
         )}
       </div>
 
-      {accounts.length === 0 ? (
+      {accountsLoading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </div>
+      ) : hasNoChart ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
             <Scale className="h-10 w-10 text-muted-foreground" />

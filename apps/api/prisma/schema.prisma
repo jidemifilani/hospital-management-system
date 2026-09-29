@@ -228,6 +228,7 @@ model Organization {
   marRecords           MARRecord[]
   supportTickets       SupportTicket[]
   patientRecalls       PatientRecall[]
+  payerStatements      PayerStatement[]
   outreachAttempts     OutreachAttempt[]
   ticketComments       TicketComment[]
   trainingRecords      TrainingRecord[]
@@ -1317,13 +1318,76 @@ enum HmoEnrolmentStatus {
   EXPIRED
 }
 
-/// An insurer or HMO the hospital has a relationship with. Claims used to
-/// carry the provider as free text, which made it impossible to total what any
-/// one insurer owed.
+enum PayerType {
+  HMO
+  CORPORATE
+  NHIS
+}
+
+enum StatementStatus {
+  DRAFT
+  ISSUED
+  PART_PAID
+  PAID
+  VOID
+}
+
+/// One bill covering a period's claims for a single payer.
+///
+/// A company on retainership does not want a claim per visit; it wants one
+/// invoice a month for everyone it covers. This groups claims that have
+/// already been approved.
+///
+/// Deliberately posts nothing to the ledger. The receivable was raised when
+/// each claim was submitted, so recognising it again here would count the same
+/// money twice. A statement presents existing debt and collects against it.
+model PayerStatement {
+  id              String          @id @default(cuid())
+  statementNumber String
+  payerId         String
+  periodStart     DateTime
+  periodEnd       DateTime
+  status          StatementStatus @default(DRAFT)
+
+  claimCount    Int     @default(0)
+  totalApproved Decimal @default(0) @db.Decimal(12, 2)
+  paidAmount    Decimal @default(0) @db.Decimal(12, 2)
+
+  issuedAt DateTime?
+  dueOn    DateTime?
+  notes    String?
+
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  payer        HmoProvider      @relation(fields: [payerId], references: [id])
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  claims       InsuranceClaim[]
+
+  @@unique([statementNumber, organizationId])
+  @@index([organizationId, status])
+  @@index([payerId])
+  @@map("payer_statements")
+}
+
+/// Who pays, when it is not the patient.
+///
+/// An insurer, a company on retainership, or the national scheme. All three
+/// work the same way — cover a share of a bill, be claimed against, owe the
+/// hospital money — so they share this registry rather than each getting a
+/// parallel one.
+///
+/// Naming debt, stated plainly: the model and its table are still called
+/// "HmoProvider" / "hmo_providers" because renaming a table holding live rows
+/// is a migration of its own. The name is now narrower than what it holds.
 model HmoProvider {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   code           String
   name           String
+  /// A corporate client is billed on a statement for its staff; an insurer is
+  /// claimed against per visit. Both are payers.
+  type           PayerType @default(HMO)
   contactName    String?
   email          String?
   phone          String?
@@ -1338,6 +1402,7 @@ model HmoProvider {
   contracts    HmoContract[]
   enrolments   HmoEnrolment[]
   claims       InsuranceClaim[]
+  statements   PayerStatement[]
 
   @@unique([code, organizationId])
   @@index([organizationId, isActive])
@@ -1561,6 +1626,8 @@ model InsuranceClaim {
   coveredAmount   Decimal?             @db.Decimal(12, 2)
   patientPortion  Decimal?             @db.Decimal(12, 2)
   paidAmount      Decimal?             @db.Decimal(12, 2)
+  /// Set once this claim has been rolled onto a payer statement.
+  statementId     String?
   status          InsuranceClaimStatus @default(DRAFT)
   submittedAt     DateTime?
   reviewedAt      DateTime?
@@ -1578,6 +1645,7 @@ model InsuranceClaim {
   enrolment    HmoEnrolment? @relation(fields: [enrolmentId], references: [id])
   encounter    Encounter?    @relation(fields: [encounterId], references: [id])
   lines        InsuranceClaimLine[]
+  statement    PayerStatement?      @relation(fields: [statementId], references: [id])
   documents    Document[]
 
   @@index([organizationId, status])

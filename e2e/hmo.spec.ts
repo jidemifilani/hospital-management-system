@@ -161,7 +161,7 @@ test.describe("insurance and HMO", () => {
 
   test("the statement shows what the insurer honoured", async ({ page }) => {
     await page.goto("/hmo");
-    await page.getByRole("tab", { name: /insurer statement/i }).click();
+    await page.getByRole("tab", { name: /insurer summary/i }).click();
 
     const row = page.getByRole("row").filter({ hasText: providerName });
     await expect(row).toBeVisible();

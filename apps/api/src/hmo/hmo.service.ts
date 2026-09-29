@@ -50,6 +50,7 @@ export class HmoService {
     dto: {
       code: string;
       name: string;
+      type?: "HMO" | "CORPORATE" | "NHIS";
       contactName?: string;
       email?: string;
       phone?: string;
@@ -65,9 +66,17 @@ export class HmoService {
     return this.prisma.hmoProvider.create({ data: { ...dto, organizationId } });
   }
 
-  listProviders(organizationId: string, includeInactive = false) {
+  listProviders(
+    organizationId: string,
+    includeInactive = false,
+    type?: "HMO" | "CORPORATE" | "NHIS",
+  ) {
     return this.prisma.hmoProvider.findMany({
-      where: { organizationId, ...(includeInactive ? {} : { isActive: true }) },
+      where: {
+        organizationId,
+        ...(includeInactive ? {} : { isActive: true }),
+        ...(type && { type }),
+      },
       include: {
         plans: { where: { isActive: true }, orderBy: { name: "asc" } },
         _count: { select: { enrolments: true, claims: true } },

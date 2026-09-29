@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StatementsTab } from "./statements-tab";
 
 const naira = (v: string | number | null | undefined) =>
   `₦${Number(v ?? 0).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -40,13 +41,16 @@ function useProviders() {
 function ProviderDialog({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [form, setForm] = useState({ code: "", name: "", contactName: "", email: "", phone: "" });
+  const [form, setForm] = useState({
+    code: "", name: "", type: "HMO", contactName: "", email: "", phone: "",
+  });
 
   const save = useMutation({
     mutationFn: () =>
       api.post("/hmo/providers", {
         code: form.code,
         name: form.name,
+        type: form.type,
         contactName: form.contactName || undefined,
         email: form.email || undefined,
         phone: form.phone || undefined,
@@ -80,6 +84,21 @@ function ProviderDialog({ onClose }: { onClose: () => void }) {
             <Label htmlFor="prov-name" className="text-xs">Name *</Label>
             <Input id="prov-name" value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Kind of payer</Label>
+            <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="HMO">HMO / insurer</SelectItem>
+                <SelectItem value="CORPORATE">Company on retainership</SelectItem>
+                <SelectItem value="NHIS">National scheme</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              A company is usually billed one statement a month; an insurer is claimed
+              against per visit.
+            </p>
           </div>
           <div className="space-y-1">
             <Label htmlFor="prov-contact" className="text-xs">Claims contact</Label>
@@ -615,7 +634,8 @@ export function HmoPage() {
           <TabsTrigger value="claims">Claims</TabsTrigger>
           <TabsTrigger value="eligibility">Eligibility</TabsTrigger>
           <TabsTrigger value="enrolments">Enrolments</TabsTrigger>
-          <TabsTrigger value="statement">Insurer Statement</TabsTrigger>
+          <TabsTrigger value="statement">Insurer Summary</TabsTrigger>
+          <TabsTrigger value="statements">Statements</TabsTrigger>
         </TabsList>
 
         <TabsContent value="claims" className="mt-4">
@@ -816,6 +836,10 @@ export function HmoPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        <TabsContent value="statements" className="mt-4">
+          <StatementsTab />
+        </TabsContent>
+
       </Tabs>
 
       {dialog === "provider" && <ProviderDialog onClose={() => setDialog(null)} />}

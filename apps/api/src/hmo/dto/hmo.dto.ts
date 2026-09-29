@@ -10,13 +10,20 @@ import {
   Max,
   MaxLength,
   IsNotEmpty,
+  IsEnum,
 } from "class-validator";
+import { PayerType } from "@prisma/client";
 
 export class CreateProviderDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(32)
   code: string;
+
+  /** An insurer, a company on retainership, or the national scheme. */
+  @IsEnum(PayerType)
+  @IsOptional()
+  type?: PayerType;
 
   @IsString()
   @IsNotEmpty()
@@ -176,4 +183,40 @@ export class RecordRemittanceDto {
   @IsOptional()
   @MaxLength(80)
   reference?: string;
+}
+
+
+export class BuildStatementDto {
+  @IsString()
+  @IsNotEmpty()
+  payerId: string;
+
+  @IsDateString()
+  periodStart: string;
+
+  @IsDateString()
+  periodEnd: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  notes?: string;
+}
+
+export class StatementPaymentDto {
+  @IsNumber()
+  @Min(0.01)
+  amount: number;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(80)
+  reference?: string;
+}
+
+export class VoidStatementDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  reason: string;
 }

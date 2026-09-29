@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, Param, Query, UseGuards } from "@nestjs/common";
 import { HmoService } from "./hmo.service";
+import { StatementsService } from "./statements.service";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
@@ -14,19 +15,29 @@ import {
   BuildClaimDto,
   AdjudicateClaimDto,
   RecordRemittanceDto,
+  BuildStatementDto,
+  StatementPaymentDto,
+  VoidStatementDto,
 } from "./dto/hmo.dto";
 
 @Controller("hmo")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class HmoController {
-  constructor(private readonly hmo: HmoService) {}
+  constructor(
+    private readonly hmo: HmoService,
+    private readonly statements: StatementsService,
+  ) {}
 
   // ── Registry ───────────────────────────────────────────────────────────────
 
   @Get("providers")
   @RequirePermissions(PERMISSIONS.INSURANCE_READ)
-  listProviders(@CurrentUser() user: JwtPayload, @Query("includeInactive") all?: string) {
-    return this.hmo.listProviders(user.organizationId!, all === "true");
+  listProviders(
+    @CurrentUser() user: JwtPayload,
+    @Query("includeInactive") all?: string,
+    @Query("type") type?: "HMO" | "CORPORATE" | "NHIS",
+  ) {
+    return this.hmo.listProviders(user.organizationId!, all === "true", type);
   }
 
   @Post("providers")
@@ -124,5 +135,51 @@ export class HmoController {
   @RequirePermissions(PERMISSIONS.INSURANCE_READ)
   statement(@CurrentUser() user: JwtPayload) {
     return this.hmo.providerStatement(user.organizationId!);
+  }
+
+  // ── Consolidated statements ────────────────────────────────────────────────
+
+  @Get("statements")
+  @RequirePermissions(PERMISSIONS.INSURANCE_READ)
+  listStatements(@CurrentUser() user: JwtPayload, @Query("payerId") payerId?: string) {
+    return this.statements.list(user.organizationId!, payerId);
+  }
+
+  @Get("statements/:id")
+  @RequirePermissions(PERMISSIONS.INSURANCE_READ)
+  statementDetail(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    return this.statements.findOne(id, user.organizationId!);
+  }
+
+  @Post("statements")
+  @RequirePermissions(PERMISSIONS.INSURANCE_MANAGE)
+  buildStatement(@Body() body: BuildStatementDto, @CurrentUser() user: JwtPayload) {
+    return this.statements.build(body, user.organizationId!);
+  }
+
+  @Post("statements/:id/issue")
+  @RequirePermissions(PERMISSIONS.INSURANCE_MANAGE)
+  issueStatement(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    return this.statements.issue(id, user.organizationId!);
+  }
+
+  @Post("statements/:id/payment")
+  @RequirePermissions(PERMISSIONS.INSURANCE_MANAGE)
+  payStatement(
+    @Param("id") id: string,
+    @Body() body: StatementPaymentDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.statements.recordPayment(id, body, user.organizationId!);
+  }
+
+  @Post("statements/:id/void")
+  @RequirePermissions(PERMISSIONS.INSURANCE_MANAGE)
+  voidStatement(
+    @Param("id") id: string,
+    @Body() body: VoidStatementDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.statements.void(id, body.reason, user.organizationId!);
   }
 }
