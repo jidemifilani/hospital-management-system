@@ -177,3 +177,64 @@ describe("AccountingService posting", () => {
     expect(created).toHaveLength(1);
   });
 });
+
+/**
+ * Reversing an entry must move the books by what the entry was worth, not by
+ * twice that.
+ *
+ * Reversal posts an opposite entry and marks the original REVERSED. Reports
+ * used to exclude anything REVERSED while still counting the reversal, so the
+ * correction landed twice: reversing a 12,000 posting moved the accounts by
+ * 24,000, and inventory stopped agreeing with the ledger. Both sides of the
+ * pair belong in the books — that is what makes the audit trail add up.
+ */
+describe("AccountingService reversal accounting", () => {
+  function filterFor(method: "trialBalance" | "aging") {
+    const lines: any[] = [];
+    const prisma = {
+      account: { findMany: jest.fn().mockResolvedValue([]) },
+      journalLine: {
+        findMany: jest.fn().mockImplementation((args: any) => {
+          lines.push(args.where);
+          return Promise.resolve([]);
+        }),
+        groupBy: jest.fn().mockImplementation((args: any) => {
+          lines.push(args.where);
+          return Promise.resolve([]);
+        }),
+      },
+      patient: { findMany: jest.fn().mockResolvedValue([]) },
+      hmoProvider: { findMany: jest.fn().mockResolvedValue([]) },
+    } as any;
+
+    const service = new AccountingService(prisma);
+    return { service, lines };
+  }
+
+  it("keeps reversed entries in the trial balance", async () => {
+    const ctx = filterFor("trialBalance");
+
+    await ctx.service.trialBalance("org-1");
+
+    const where = ctx.lines.at(-1);
+    // Dropping the original while counting its reversal applies it twice.
+    expect(where.journalEntry.status).toEqual({ not: "DRAFT" });
+  });
+
+  it("keeps reversed entries in the ageing reports", async () => {
+    const ctx = filterFor("aging");
+
+    await ctx.service.aging("org-1", "AR");
+
+    const where = ctx.lines.at(-1);
+    expect(where.journalEntry.status).toEqual({ not: "DRAFT" });
+  });
+
+  it("leaves drafts out, because they were never posted", async () => {
+    const ctx = filterFor("trialBalance");
+
+    await ctx.service.trialBalance("org-1");
+
+    expect(ctx.lines.at(-1).journalEntry.status.not).toBe("DRAFT");
+  });
+});

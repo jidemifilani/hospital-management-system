@@ -19,9 +19,16 @@ export class InventoryListener {
     moveId: string;
     value: string;
     supplierName?: string | null;
+    sourceType?: string | null;
     organizationId: string;
   }) {
     if (Number(e.value) <= 0) return;
+
+    // Output from a production run is not a purchase. Its value came from the
+    // materials, which were deliberately left in inventory when they were
+    // drawn — booking it again here would inflate stock and invent a payable
+    // to a supplier who never sent anything.
+    if (e.sourceType === "PRODUCTION_RUN") return;
     try {
       await this.accounting.postEntry({
         description: "Stock received into store",
@@ -84,6 +91,13 @@ export class InventoryListener {
   @OnEvent("inventory.issued")
   async onIssued(e: { moveId: string; value: string; type: string; organizationId: string }) {
     if (Number(e.value) <= 0) return;
+
+    // Material drawn into a production run has not left inventory — it has
+    // become part of something else that is still on a shelf. Expensing it
+    // here would write the value off and then the finished item would carry
+    // it again, counting the same money out twice and understating stock.
+    if (e.type === "PRODUCTION") return;
+
     try {
       // A write-off is a loss; ordinary consumption is cost of supplies.
       const expense =

@@ -180,6 +180,9 @@ export class InventoryService {
       // Carried through so payables can be aged by supplier rather than
       // collapsing into a single anonymous balance.
       supplierName: dto.supplierName ?? null,
+      // Where the goods came from. A production run is not a purchase,
+      // and must not be booked as one.
+      sourceType: dto.sourceType ?? null,
       organizationId,
     });
 
@@ -192,7 +195,7 @@ export class InventoryService {
       itemId: string;
       locationId: string;
       quantity: number;
-      type?: Extract<StockMoveType, "ISSUE" | "CONSUMPTION" | "WRITE_OFF">;
+      type?: Extract<StockMoveType, "ISSUE" | "CONSUMPTION" | "WRITE_OFF" | "PRODUCTION">;
       reason?: string;
       sourceType?: string;
       sourceId?: string;
@@ -520,7 +523,7 @@ export class InventoryService {
         where: {
           organizationId,
           account: { code: { in: [ACCOUNTS.INVENTORY_CONSUMABLES, ACCOUNTS.INVENTORY_DRUGS] } },
-          journalEntry: { status: { not: "REVERSED" } },
+          journalEntry: { status: { not: "DRAFT" } },
         },
         _sum: { debit: true, credit: true },
       }),

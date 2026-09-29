@@ -239,7 +239,7 @@ export class AccountingService {
         accountId,
         organizationId,
         journalEntry: {
-          status: { not: "REVERSED" },
+          status: { not: "DRAFT" },
           ...(from || to
             ? { entryDate: { ...(from && { gte: from }), ...(to && { lte: to }) } }
             : {}),
@@ -361,7 +361,7 @@ export class AccountingService {
         organizationId,
         partnerType,
         account: { type: accountType },
-        journalEntry: { status: { not: "REVERSED" }, entryDate: { lte: asOf } },
+        journalEntry: { status: { not: "DRAFT" }, entryDate: { lte: asOf } },
       },
       include: { journalEntry: { select: { entryDate: true } } },
     });
@@ -517,11 +517,21 @@ export class AccountingService {
     }
   }
 
+  /**
+   * Lines that count towards a balance.
+   *
+   * Reversed entries are included on purpose. Reversing does not erase an
+   * entry — it posts an opposite one and marks the original — so both sit in
+   * the books and net to zero, which is what an audit trail is for. Excluding
+   * the original while counting its reversal applied the correction twice:
+   * reversing a 12,000 posting moved the accounts by 24,000. Only a draft,
+   * which was never posted at all, is left out.
+   */
   private postedLineFilter(organizationId: string, from?: Date, to?: Date) {
     return {
       organizationId,
       journalEntry: {
-        status: { not: "REVERSED" as const },
+        status: { not: "DRAFT" as const },
         ...(from || to
           ? { entryDate: { ...(from && { gte: from }), ...(to && { lte: to }) } }
           : {}),

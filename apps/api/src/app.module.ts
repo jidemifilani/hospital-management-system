@@ -49,6 +49,7 @@ import { TransportModule } from "./transport/transport.module";
 import { MarModule } from "./mar/mar.module";
 import { HelpdeskModule } from "./helpdesk/helpdesk.module";
 import { RecallModule } from "./recall/recall.module";
+import { ProductionModule } from "./production/production.module";
 import { TrainingModule } from "./training/training.module";
 import { AlertsModule } from "./alerts/alerts.module";
 import { HandoverModule } from "./handover/handover.module";
@@ -139,6 +140,7 @@ import { GlobalThrottlerGuard } from "./common/guards/global-throttler.guard";
     MarModule,
     HelpdeskModule,
     RecallModule,
+    ProductionModule,
     TrainingModule,
     AlertsModule,
     HandoverModule,
