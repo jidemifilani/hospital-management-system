@@ -5,7 +5,7 @@ import {
 import { ApiTags } from "@nestjs/swagger";
 import { IsString, IsDateString } from "class-validator";
 import { PortalService } from "./portal.service";
-import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
+import { PatientAuthGuard } from "../common/guards/patient-auth.guard";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import type { JwtPayload } from "@hms/types";
 
@@ -25,13 +25,13 @@ export class PortalController {
   }
 
   @Get("profile")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(PatientAuthGuard)
   getProfile(@CurrentUser() user: JwtPayload) {
     return this.portal.getProfile(user.sub);
   }
 
   @Get("appointments")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(PatientAuthGuard)
   getAppointments(
     @CurrentUser() user: JwtPayload,
     @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
@@ -41,25 +41,25 @@ export class PortalController {
   }
 
   @Get("lab-results")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(PatientAuthGuard)
   getLabResults(@CurrentUser() user: JwtPayload) {
     return this.portal.getLabResults(user.sub);
   }
 
   @Get("prescriptions")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(PatientAuthGuard)
   getPrescriptions(@CurrentUser() user: JwtPayload) {
     return this.portal.getPrescriptions(user.sub);
   }
 
   @Get("invoices")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(PatientAuthGuard)
   getInvoices(@CurrentUser() user: JwtPayload) {
     return this.portal.getInvoices(user.sub);
   }
 
   @Get("health-summary")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(PatientAuthGuard)
   getHealthSummary(@CurrentUser() user: JwtPayload) {
     return this.portal.getEmrSummary(user.sub);
   }

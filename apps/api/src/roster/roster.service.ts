@@ -1,16 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import type { CreateRosterDto } from "./dto/roster.dto";
 
-export interface CreateRosterDto {
-  staffId: string;
-  departmentId: string;
-  date: string;          // YYYY-MM-DD
-  shiftType: "MORNING" | "AFTERNOON" | "NIGHT" | "ON_CALL";
-  startTime: string;     // HH:mm
-  endTime: string;
-  isOnCall?: boolean;
-  notes?: string;
-}
 
 @Injectable()
 export class RosterService {
