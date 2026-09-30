@@ -246,7 +246,12 @@ export class PosService {
     const location = await this.sellingLocation(sale.locationId ?? undefined, organizationId);
 
     for (const line of sale.lines) {
-      const item = await this.prisma.inventoryItem.findUnique({ where: { id: line.itemId } });
+      // Scoped to the organisation even though the sale it came from already
+      // is: a lookup by bare id is one refactor away from taking an id
+      // straight from a request.
+      const item = await this.prisma.inventoryItem.findFirst({
+        where: { id: line.itemId, organizationId },
+      });
       await this.inventory.receive(
         {
           itemId: line.itemId,

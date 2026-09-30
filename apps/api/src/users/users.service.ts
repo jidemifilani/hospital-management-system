@@ -26,7 +26,11 @@ export class UsersService {
     if (existing) throw new ConflictException("Email already registered");
 
     const dept = dto.departmentId
-      ? await this.prisma.department.findUnique({ where: { id: dto.departmentId } })
+      // The id arrives from the request, so it is scoped: without this a user
+      // could be filed under another organisation's department.
+      ? await this.prisma.department.findFirst({
+          where: { id: dto.departmentId, organizationId: dto.organizationId },
+        })
       : await this.prisma.department.findFirst({
           where: { organizationId: dto.organizationId },
         });

@@ -63,6 +63,11 @@ function build(opts: { sales?: { total: number; method: string; status?: string 
         averageCost: new Decimal(900),
         requiresBatch: false,
       }),
+      findFirst: jest.fn().mockResolvedValue({
+        id: "item-1",
+        averageCost: new Decimal(900),
+        requiresBatch: false,
+      }),
     },
     stockLocation: {
       findFirst: jest.fn().mockImplementation(({ where }) =>
