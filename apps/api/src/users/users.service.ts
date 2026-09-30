@@ -21,7 +21,7 @@ export class UsersService {
     private events: EventEmitter2,
   ) {}
 
-  async create(dto: CreateUserDto, createdById: string) {
+  async create(dto: CreateUserDto, _createdById: string) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) throw new ConflictException("Email already registered");
 

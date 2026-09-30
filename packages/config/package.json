@@ -9,8 +9,7 @@
       "import": "./dist/index.js",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    },
-    "./eslint": "./eslint.config.js"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

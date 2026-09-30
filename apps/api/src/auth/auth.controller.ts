@@ -3,13 +3,12 @@ import {
   Post,
   Body,
   Req,
-  Res,
   HttpCode,
   HttpStatus,
   UseGuards,
   Get,
 } from "@nestjs/common";
-import { Request, Response } from "express";
+import { Request } from "express";
 import { Throttle } from "@nestjs/throttler";
 import { LoginThrottlerGuard } from "../common/guards/login-throttler.guard";
 import { AuthService } from "./auth.service";

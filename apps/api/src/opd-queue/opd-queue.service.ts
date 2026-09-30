@@ -2,9 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from "@nestjs/comm
 import { PrismaService } from "../prisma/prisma.service";
 import { EncountersService } from "../encounters/encounters.service";
 import { CreateQueueDto } from "./dto/create-queue.dto";
-import { customAlphabet } from "nanoid";
 
-const genNum = customAlphabet("0123456789", 4);
 
 const PATIENT_SELECT = { id: true, firstName: true, lastName: true, mrn: true, phone: true };
 const DEPT_SELECT = { id: true, name: true };

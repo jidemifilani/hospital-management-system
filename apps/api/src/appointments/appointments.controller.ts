@@ -11,7 +11,6 @@ import {
   DefaultValuePipe,
   BadRequestException,
 } from "@nestjs/common";
-import { IsEnum, IsOptional, IsString } from "class-validator";
 import { AppointmentStatus } from "@prisma/client";
 import { AppointmentsService } from "./appointments.service";
 import { CreateAppointmentDto } from "./dto/create-appointment.dto";

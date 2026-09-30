@@ -54,7 +54,7 @@ export default function PortalAppointmentsPage() {
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">{formatDateTime(appt.scheduledAt)}</p>
                   {appt.chiefComplaint && (
-                    <p className="text-xs text-muted-foreground mt-1 italic">"{appt.chiefComplaint}"</p>
+                    <p className="text-xs text-muted-foreground mt-1 italic">&ldquo;{appt.chiefComplaint}&rdquo;</p>
                   )}
                 </div>
               </div>

@@ -7,7 +7,7 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
 import type { JwtPayload } from "@hms/types";
 import { AdmitPatientDto, TransferBedDto, DischargeDto } from "./dto/admission.dto";
-import type { AdmissionStatus, AdmissionType, DischargeType } from "@prisma/client";
+import type { AdmissionStatus } from "@prisma/client";
 
 @Controller("admissions")
 @UseGuards(JwtAuthGuard, PermissionsGuard)

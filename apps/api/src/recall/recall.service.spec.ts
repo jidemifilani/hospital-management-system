@@ -1,4 +1,5 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { RecallService } from "./recall.service";
 
 /**
@@ -105,7 +106,7 @@ describe("raising a recall", () => {
     const ctx = build();
     const clash: any = new Error("unique");
     clash.code = "P2002";
-    Object.setPrototypeOf(clash, (require("@prisma/client").Prisma.PrismaClientKnownRequestError).prototype);
+    Object.setPrototypeOf(clash, Prisma.PrismaClientKnownRequestError.prototype);
     ctx.prisma.patientRecall.create.mockRejectedValue(clash);
 
     // Editing a discharge summary twice must not put the same follow-up on

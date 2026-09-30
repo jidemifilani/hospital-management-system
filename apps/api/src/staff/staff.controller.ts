@@ -8,7 +8,6 @@ import {
   UseGuards,
   ParseIntPipe,
   DefaultValuePipe,
-  ParseBoolPipe,
 } from "@nestjs/common";
 import { StaffService } from "./staff.service";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";

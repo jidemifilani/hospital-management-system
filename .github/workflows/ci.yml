@@ -1,0 +1,174 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+# A newer push makes an in-flight run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Node 20 is the floor this repo declares. Building on the floor is what
+  # catches code that quietly needs something newer.
+  NODE_VERSION: "20"
+
+jobs:
+  # Fast feedback: nothing here needs a database, so it fails in a couple of
+  # minutes rather than after the whole stack has booted.
+  checks:
+    name: Types, lint and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      # `npm ci` runs each workspace package's prepare script, which is what
+      # builds @hms/config, @hms/types and @hms/utils into dist.
+      - run: npm ci
+
+      # The Prisma client is generated code the types depend on; without it
+      # every service that touches the database fails to compile.
+      - run: npx prisma generate
+        working-directory: apps/api
+
+      - name: Typecheck API
+        run: npx tsc --noEmit -p tsconfig.json
+        working-directory: apps/api
+
+      - name: Typecheck web
+        run: npx tsc --noEmit -p tsconfig.json
+        working-directory: apps/web
+
+      - name: Lint
+        run: npm run lint
+
+      # These mock Prisma, so they need no services.
+      - name: Unit tests
+        run: npx jest --ci
+        working-directory: apps/api
+
+  # The browser suite, against production builds rather than dev servers: it
+  # is what a deployment actually runs, and it proves the build works — which
+  # nothing else in this repo does.
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: caresync
+          POSTGRES_PASSWORD: caresync
+          POSTGRES_DB: caresync
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U caresync"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://caresync:caresync@localhost:5432/caresync
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: ci-access-secret-not-used-anywhere-real-0000000000000000
+      NEXTAUTH_SECRET: ci-nextauth-secret-not-used-anywhere-real-000000000000
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      API_PORT: "4000"
+      # The suite signs in repeatedly as one seeded account; the shipped
+      # default of 10 per 15 minutes would lock it out mid-run.
+      LOGIN_RATE_LIMIT: "1000"
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+        working-directory: apps/api
+
+      - name: Generate client
+        run: npx prisma generate
+        working-directory: apps/api
+
+      - name: Seed
+        run: npx ts-node prisma/seed.ts
+        working-directory: apps/api
+
+      - name: Build API
+        run: npx nest build
+        working-directory: apps/api
+
+      - name: Build web
+        run: npx next build
+        working-directory: apps/web
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Start API
+        working-directory: apps/api
+        run: |
+          node dist/main > /tmp/api.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:4000/api/v1/health > /dev/null; then
+              echo "API up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "API never became healthy:"; cat /tmp/api.log; exit 1
+
+      - name: Start web
+        working-directory: apps/web
+        run: |
+          npx next start --port 3000 > /tmp/web.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/auth/login > /dev/null; then
+              echo "Web up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "Web never became healthy:"; cat /tmp/web.log; exit 1
+
+      - name: End-to-end tests
+        run: npx playwright test
+
+      # The trace and screenshots are the whole reason a failure here is
+      # diagnosable rather than a mystery.
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+      - name: Server logs on failure
+        if: failure()
+        run: |
+          echo "── API ──"; tail -100 /tmp/api.log || true
+          echo "── Web ──"; tail -100 /tmp/web.log || true

@@ -189,7 +189,7 @@ describe("AccountingService posting", () => {
  * pair belong in the books — that is what makes the audit trail add up.
  */
 describe("AccountingService reversal accounting", () => {
-  function filterFor(method: "trialBalance" | "aging") {
+  function filterFor(_method: "trialBalance" | "aging") {
     const lines: any[] = [];
     const prisma = {
       account: { findMany: jest.fn().mockResolvedValue([]) },

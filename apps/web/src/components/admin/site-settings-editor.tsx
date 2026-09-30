@@ -525,7 +525,7 @@ export function SiteSettingsEditor() {
       </TabsList>
 
       <TabsContent value="theme">
-        <Card><CardHeader><CardTitle>Theme</CardTitle><CardDescription>Customise the website's colour scheme, typography, and shape.</CardDescription></CardHeader>
+        <Card><CardHeader><CardTitle>Theme</CardTitle><CardDescription>Customise the website&apos;s colour scheme, typography, and shape.</CardDescription></CardHeader>
           <CardContent><ThemeTab theme={theme} onSave={saveTheme} /></CardContent>
         </Card>
       </TabsContent>
@@ -543,7 +543,7 @@ export function SiteSettingsEditor() {
       </TabsContent>
 
       <TabsContent value="stats">
-        <Card><CardHeader><CardTitle>Stats Bar</CardTitle><CardDescription>The four key numbers shown below the hero (e.g. "50k+ Patients Treated").</CardDescription></CardHeader>
+        <Card><CardHeader><CardTitle>Stats Bar</CardTitle><CardDescription>The four key numbers shown below the hero (e.g. &ldquo;50k+ Patients Treated&rdquo;).</CardDescription></CardHeader>
           <CardContent><StatsTab stats={content.stats ?? []} onSave={(s) => saveContent({ stats: s })} /></CardContent>
         </Card>
       </TabsContent>
@@ -555,7 +555,7 @@ export function SiteSettingsEditor() {
       </TabsContent>
 
       <TabsContent value="whyus">
-        <Card><CardHeader><CardTitle>Why Choose Us</CardTitle><CardDescription>Bullet points listed in the "Why Patients Choose CareSync" section.</CardDescription></CardHeader>
+        <Card><CardHeader><CardTitle>Why Choose Us</CardTitle><CardDescription>Bullet points listed in the &ldquo;Why Patients Choose CareSync&rdquo; section.</CardDescription></CardHeader>
           <CardContent><WhyUsTab items={content.whyUs ?? []} onSave={(s) => saveContent({ whyUs: s })} /></CardContent>
         </Card>
       </TabsContent>
@@ -567,7 +567,7 @@ export function SiteSettingsEditor() {
       </TabsContent>
 
       <TabsContent value="doctors">
-        <Card><CardHeader><CardTitle>Featured Doctors</CardTitle><CardDescription>Doctor profiles shown in the "Meet Our Specialists" section.</CardDescription></CardHeader>
+        <Card><CardHeader><CardTitle>Featured Doctors</CardTitle><CardDescription>Doctor profiles shown in the &ldquo;Meet Our Specialists&rdquo; section.</CardDescription></CardHeader>
           <CardContent><DoctorsTab doctors={content.doctors ?? []} onSave={(s) => saveContent({ doctors: s })} /></CardContent>
         </Card>
       </TabsContent>

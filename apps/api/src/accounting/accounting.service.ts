@@ -366,10 +366,10 @@ export class AccountingService {
       include: { journalEntry: { select: { entryDate: true } } },
     });
 
-    const buckets = ["current", "d31_60", "d61_90", "d90_plus"] as const;
+    type Bucket = "current" | "d31_60" | "d61_90" | "d90_plus";
     const byPartner = new Map<
       string,
-      { partnerId: string; total: Decimal } & Record<(typeof buckets)[number], Decimal>
+      { partnerId: string; total: Decimal } & Record<Bucket, Decimal>
     >();
 
     for (const line of lines) {

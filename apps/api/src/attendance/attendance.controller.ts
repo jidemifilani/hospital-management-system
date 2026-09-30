@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Query, UseGuards } from "@nestjs/common";
 import { AttendanceService } from "./attendance.service";
 import { RecordAttendanceDto } from "./dto/record-attendance.dto";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";

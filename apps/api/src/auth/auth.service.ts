@@ -12,7 +12,7 @@ import * as bcrypt from "bcrypt";
 import { customAlphabet } from "nanoid";
 import { PrismaService } from "../prisma/prisma.service";
 import type { AuthResponse, JwtPayload, MfaSetupResponse } from "@hms/types";
-import { PERMISSIONS, ROLE_PERMISSIONS } from "@hms/config";
+import { ROLE_PERMISSIONS } from "@hms/config";
 import { LoginDto } from "./dto/login.dto";
 
 const genBackup = customAlphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 10);
@@ -94,7 +94,6 @@ export class AuthService {
 
     await this.prisma.refreshToken.update({ where: { id: stored.id }, data: { isRevoked: true } });
 
-    const permissions = ROLE_PERMISSIONS[stored.user.role] ?? [];
     const payload: JwtPayload = {
       sub: stored.user.id,
       email: stored.user.email,

@@ -143,7 +143,7 @@ export function DepartmentsGrid() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {departments.length === 0 && (
           <p className="col-span-full py-12 text-center text-muted-foreground">
-            No departments yet. Click "New Department" to add one.
+            No departments yet. Click &ldquo;New Department&rdquo; to add one.
           </p>
         )}
         {departments.map((dept) => (
