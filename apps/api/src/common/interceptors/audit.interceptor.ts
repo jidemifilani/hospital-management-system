@@ -4,6 +4,7 @@ import { AuditAction } from "@prisma/client";
 import { Observable } from "rxjs";
 import { tap } from "rxjs/operators";
 import type { JwtPayload } from "@hms/types";
+import { ENCRYPTED_FIELDS } from "../crypto/encrypted-fields";
 
 const METHOD_ACTION: Record<string, AuditAction> = {
   POST: "CREATE",
@@ -45,6 +46,26 @@ const SENSITIVE_FIELDS = new Set([
   "mfaCode",
   "otp",
 ]);
+
+/**
+ * Fields the database holds as ciphertext.
+ *
+ * The request body that produced a change is recorded here as metadata, which
+ * means a patient created through the API wrote their NIN, address, allergies
+ * and next of kin into audit_logs in the clear — the same values the patients
+ * table encrypts, sitting unprotected in a table kept for seven years. That
+ * left the encryption largely decorative for anyone registered or edited
+ * through the app.
+ *
+ * The names are flattened across models on purpose. The interceptor sees a URL
+ * and a body, not a model, and a field called `address` is as sensitive on one
+ * resource as another, so over-redacting is the safe direction.
+ *
+ * What survives is that the field was part of the change and who made it. The
+ * value itself stays in the patients table, encrypted, which is the only place
+ * it needs to exist.
+ */
+const ENCRYPTED_AT_REST = new Set<string>(Object.values(ENCRYPTED_FIELDS).flat());
 
 /**
  * Writes the audit trail.
@@ -132,13 +153,15 @@ export class AuditInterceptor implements NestInterceptor {
     return typeof value === "string" ? value : undefined;
   }
 
-  /** Never let a credential reach a table retained for seven years. */
+  /** Never let a credential or an encrypted value reach a table retained for seven years. */
   private scrub(body: unknown): Record<string, unknown> | undefined {
     if (!body || typeof body !== "object") return undefined;
 
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(body as Record<string, unknown>)) {
-      out[key] = SENSITIVE_FIELDS.has(key) ? "[redacted]" : value;
+      if (SENSITIVE_FIELDS.has(key)) out[key] = "[redacted]";
+      else if (ENCRYPTED_AT_REST.has(key)) out[key] = "[encrypted]";
+      else out[key] = value;
     }
     return out;
   }

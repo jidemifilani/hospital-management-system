@@ -87,6 +87,9 @@ jobs:
       REDIS_URL: redis://localhost:6379
       JWT_ACCESS_SECRET: ci-access-secret-not-used-anywhere-real-0000000000000000
       NEXTAUTH_SECRET: ci-nextauth-secret-not-used-anywhere-real-000000000000
+      # Throwaway, and the API will not boot without one. Never a real key:
+      # this database is created and destroyed inside the job.
+      FIELD_ENCRYPTION_KEY: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
       NEXTAUTH_URL: http://localhost:3000
       NEXT_PUBLIC_API_URL: http://localhost:4000
       API_PORT: "4000"
