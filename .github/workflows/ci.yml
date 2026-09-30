@@ -175,3 +175,82 @@ jobs:
         run: |
           echo "── API ──"; tail -100 /tmp/api.log || true
           echo "── Web ──"; tail -100 /tmp/web.log || true
+
+  # A backup nobody has restored is a file, not a backup. This takes a real one
+  # and restores it into a second database on every push, so the day it is
+  # needed is not the first time anyone has tried.
+  backup-restore:
+    name: Backup and restore
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: caresync
+          POSTGRES_PASSWORD: caresync
+          POSTGRES_DB: caresync
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U caresync"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://caresync:caresync@localhost:5432/caresync
+      FIELD_ENCRYPTION_KEY: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+      BACKUP_ENCRYPTION_KEY: ffeeddccbbaa99887766554433221100ffeeddccbbaa99887766554433221100
+      BACKUP_DIR: /tmp/caresync-backups
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+        working-directory: apps/api
+
+      - name: Generate client
+        run: npx prisma generate
+        working-directory: apps/api
+
+      - name: Seed
+        run: npx ts-node prisma/seed.ts
+        working-directory: apps/api
+
+      # The runner already has the postgres client tools, so PG_DOCKER_CONTAINER
+      # stays unset here and pg_dump runs directly.
+      - name: Take a backup
+        run: npm run backup
+
+      - name: Prove it is encrypted, and has a manifest
+        run: |
+          FILE=$(ls "$BACKUP_DIR"/*.dump.enc | head -1)
+          head -c 8 "$FILE" | grep -q CSYNCBK1 || { echo "missing header"; exit 1; }
+          if grep -qa PGDMP "$FILE"; then echo "dump is readable in the clear"; exit 1; fi
+          MANIFEST="${FILE%.dump.enc}.manifest.enc"
+          test -f "$MANIFEST" || { echo "no manifest beside the backup"; exit 1; }
+          # The manifest says how many patients a hospital has; it is not plain JSON.
+          if grep -qa '"patients"' "$MANIFEST"; then echo "manifest is not encrypted"; exit 1; fi
+          echo "Encrypted, with manifest: $(basename "$FILE")"
+
+      - name: Restore it and check the result
+        run: npm run backup:verify
+
+      # Restoring over a populated database without --force would be an easy
+      # way to lose a hospital's records, so the refusal is part of the
+      # contract and is checked here rather than trusted.
+      - name: Refuses to overwrite a populated database
+        run: |
+          FILE=$(ls "$BACKUP_DIR"/*.dump.enc | head -1)
+          if node scripts/restore.js "$FILE"; then
+            echo "restore overwrote a populated database without --force"; exit 1
+          fi
+          echo "Refused, as it should."

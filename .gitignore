@@ -67,3 +67,11 @@ e2e/.auth/
 # must never reach version control. The directory itself is created at runtime.
 storage/
 apps/api/storage/
+
+# Database backups. These are full copies of the patient database — names,
+# phone numbers and every appointment — and are encrypted at rest but must
+# never be committed.
+backups/
+*.dump
+*.dump.enc
+*.manifest.enc
