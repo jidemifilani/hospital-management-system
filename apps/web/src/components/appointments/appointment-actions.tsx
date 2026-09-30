@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { PlayCircle, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -43,7 +44,7 @@ export function AppointmentActions({ appointmentId, status, onUpdate }: Props) {
       toast({ title: "Consultation started" });
       invalidate();
     },
-    onError: () => toast({ title: "Failed to update", variant: "destructive" }),
+    onError: (e) => toast({ title: apiErrorMessage(e, "Failed to update"), variant: "destructive" }),
   });
 
   const complete = useMutation({
@@ -53,7 +54,7 @@ export function AppointmentActions({ appointmentId, status, onUpdate }: Props) {
       toast({ title: "Appointment marked as completed" });
       invalidate();
     },
-    onError: () => toast({ title: "Failed to update", variant: "destructive" }),
+    onError: (e) => toast({ title: apiErrorMessage(e, "Failed to update"), variant: "destructive" }),
   });
 
   const cancel = useMutation({
@@ -66,7 +67,7 @@ export function AppointmentActions({ appointmentId, status, onUpdate }: Props) {
       toast({ title: "Appointment cancelled" });
       invalidate();
     },
-    onError: () => toast({ title: "Failed to cancel", variant: "destructive" }),
+    onError: (e) => toast({ title: apiErrorMessage(e, "Failed to cancel"), variant: "destructive" }),
   });
 
   if (status === "COMPLETED" || status === "CANCELLED") {

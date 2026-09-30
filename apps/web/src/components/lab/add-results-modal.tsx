@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -62,7 +63,7 @@ export function AddResultsModal({ orderId, existingTests, onClose, onSuccess }: 
       toast({ title: "Results saved" });
       onSuccess();
     },
-    onError: () => toast({ title: "Failed to save results", variant: "destructive" }),
+    onError: (e) => toast({ title: apiErrorMessage(e, "Failed to save results"), variant: "destructive" }),
   });
 
   return (

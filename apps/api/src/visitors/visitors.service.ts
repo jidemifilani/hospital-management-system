@@ -9,6 +9,14 @@ export class VisitorsService {
   constructor(private prisma: PrismaService) {}
 
   async checkIn(data: any, organizationId: string) {
+    // Checked here so an id that does not exist is a plain 404 rather than a
+    // foreign-key violation surfacing as an opaque 500.
+    const patient = await this.prisma.patient.findFirst({
+      where: { id: data.patientId, organizationId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!patient) throw new NotFoundException("No such patient to visit");
+
     return this.prisma.visitor.create({
       data: {
         visitorNumber: `VIS-${genId()}`,
@@ -17,8 +25,8 @@ export class VisitorsService {
         phone: data.phone ?? null,
         idType: data.idType ?? null,
         idNumber: data.idNumber ?? null,
-        relationship: data.relationship ?? null,
         patientId: data.patientId,
+        relationship: data.relationship ?? null,
         visitPurpose: data.visitPurpose ?? null,
         notes: data.notes ?? null,
         organizationId,

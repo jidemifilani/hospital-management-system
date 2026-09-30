@@ -6,6 +6,7 @@ import {
   Building2, Bell, Save, Loader2, Globe, Phone, Mail, MapPin, Image,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,7 +66,7 @@ export function SettingsPage() {
       setOrgForm({});
       toast({ title: "Organization profile saved" });
     },
-    onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+    onError: (e) => toast({ title: apiErrorMessage(e, "Failed to save"), variant: "destructive" }),
   });
 
   const saveNotif = useMutation({
@@ -74,7 +75,7 @@ export function SettingsPage() {
       qc.invalidateQueries({ queryKey: ["settings"] });
       toast({ title: "Notification preferences saved" });
     },
-    onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+    onError: (e) => toast({ title: apiErrorMessage(e, "Failed to save"), variant: "destructive" }),
   });
 
   const setOrgField = (k: keyof OrgSettings, v: string) =>

@@ -52,9 +52,18 @@ function CheckInDialog({ onSuccess }: { onSuccess: () => void }) {
     idType: "", idNumber: "", patientId: "", visitPurpose: "", notes: "",
   });
 
+  const [patientSearch, setPatientSearch] = useState("");
+  const [chosenPatientLabel, setChosenPatientLabel] = useState("");
+
+  const { data: patientResults } = useQuery({
+    queryKey: ["visitor-patient-search", patientSearch],
+    queryFn: async () => (await api.get("/patients", { params: { search: patientSearch, limit: 6 } })).data,
+    enabled: patientSearch.length >= 2,
+  });
+
   const mutation = useMutation({
     mutationFn: (data: any) => api.post("/visitors", data).then((r) => r.data),
-    onSuccess: () => { setOpen(false); setForm({ firstName: "", lastName: "", phone: "", relationship: "", idType: "", idNumber: "", patientId: "", visitPurpose: "", notes: "" }); onSuccess(); },
+    onSuccess: () => { setOpen(false); setForm({ firstName: "", lastName: "", phone: "", relationship: "", idType: "", idNumber: "", patientId: "", visitPurpose: "", notes: "" }); setPatientSearch(""); setChosenPatientLabel(""); onSuccess(); },
   });
 
   return (
@@ -67,48 +76,83 @@ function CheckInDialog({ onSuccess }: { onSuccess: () => void }) {
         <div className="space-y-4 pt-2">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>First Name</Label>
-              <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+              <Label htmlFor="vis-first">First Name</Label>
+              <Input id="vis-first" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
             </div>
             <div className="space-y-1">
-              <Label>Last Name</Label>
-              <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Phone</Label>
-              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            </div>
-            <div className="space-y-1">
-              <Label>Relationship to Patient</Label>
-              <Input value={form.relationship} onChange={(e) => setForm({ ...form, relationship: e.target.value })} placeholder="e.g. Spouse, Sibling" />
+              <Label htmlFor="vis-last">Last Name</Label>
+              <Input id="vis-last" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label>ID Type</Label>
+              <Label htmlFor="vis-phone">Phone</Label>
+              <Input id="vis-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="vis-rel">Relationship to Patient</Label>
+              <Input id="vis-rel" value={form.relationship} onChange={(e) => setForm({ ...form, relationship: e.target.value })} placeholder="e.g. Spouse, Sibling" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="vis-idtype">ID Type</Label>
               <Select value={form.idType} onValueChange={(v) => setForm({ ...form, idType: v })}>
                 <SelectTrigger><SelectValue placeholder="Select ID" /></SelectTrigger>
                 <SelectContent>{ID_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>ID Number</Label>
-              <Input value={form.idNumber} onChange={(e) => setForm({ ...form, idNumber: e.target.value })} />
+              <Label htmlFor="vis-idnum">ID Number</Label>
+              <Input id="vis-idnum" value={form.idNumber} onChange={(e) => setForm({ ...form, idNumber: e.target.value })} />
             </div>
           </div>
+          {/*
+            Was a free-text box asking for the patient's id. Nobody knows a
+            database id, so people typed a name, the button enabled, and the
+            request failed on a foreign key they could not see. Search and pick
+            instead.
+          */}
           <div className="space-y-1">
-            <Label>Patient ID / MRN</Label>
-            <Input value={form.patientId} onChange={(e) => setForm({ ...form, patientId: e.target.value })} placeholder="Patient to visit" />
+            <Label htmlFor="vis-patient">Patient being visited *</Label>
+            <Input
+              id="vis-patient"
+              value={patientSearch}
+              onChange={(e) => {
+                setPatientSearch(e.target.value);
+                setForm({ ...form, patientId: "" });
+              }}
+              placeholder="Search by name or MRN"
+            />
+            {form.patientId ? (
+              <p className="text-xs text-emerald-700">Selected {chosenPatientLabel}</p>
+            ) : (
+              (patientResults?.data ?? []).length > 0 && (
+                <div className="max-h-28 overflow-y-auto rounded border">
+                  {patientResults.data.map((p: any) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setForm({ ...form, patientId: p.id });
+                        setChosenPatientLabel(`${p.firstName} ${p.lastName} (${p.mrn})`);
+                      }}
+                      className="block w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
+                    >
+                      {p.firstName} {p.lastName} · {p.mrn}
+                    </button>
+                  ))}
+                </div>
+              )
+            )}
           </div>
           <div className="space-y-1">
-            <Label>Purpose of Visit</Label>
-            <Input value={form.visitPurpose} onChange={(e) => setForm({ ...form, visitPurpose: e.target.value })} placeholder="e.g. General visit, post-op check" />
+            <Label htmlFor="vis-purpose">Purpose of Visit</Label>
+            <Input id="vis-purpose" value={form.visitPurpose} onChange={(e) => setForm({ ...form, visitPurpose: e.target.value })} placeholder="e.g. General visit, post-op check" />
           </div>
           <div className="space-y-1">
-            <Label>Notes</Label>
-            <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            <Label htmlFor="vis-notes">Notes</Label>
+            <Input id="vis-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           </div>
           <Button
             className="w-full"

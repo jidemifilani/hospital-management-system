@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Search, Pill, AlertTriangle, CheckCircle2, Loader2, MoreHorizontal, Package } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { NewPrescriptionDialog } from "./new-prescription-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,7 +81,7 @@ export function PharmacyDashboard() {
       toast({ title: "Prescription dispensed" });
       setSelected(null);
     },
-    onError: () => toast({ title: "Failed to dispense", variant: "destructive" }),
+    onError: (e) => toast({ title: apiErrorMessage(e, "Failed to dispense"), variant: "destructive" }),
   });
 
   const pending = (rxData?.data ?? []).filter((r) =>

@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,7 +69,7 @@ export function CreateInvoicePage() {
       toast({ title: "Invoice created" });
       router.push("/billing");
     },
-    onError: () => toast({ title: "Failed to create invoice", variant: "destructive" }),
+    onError: (e) => toast({ title: apiErrorMessage(e, "Failed to create invoice"), variant: "destructive" }),
   });
 
   return (

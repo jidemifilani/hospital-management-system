@@ -35,20 +35,44 @@ const patientSchema = z.object({
 
 type PatientFormValues = z.infer<typeof patientSchema>;
 
-export function PatientRegistrationForm() {
+/**
+ * Registers a patient, or edits one when an existing record is passed.
+ *
+ * The patients table has always offered an Edit action linking to
+ * /patients/:id/edit, and that page did not exist — the link led to a 404. One
+ * form serving both is better than a second copy that drifts from this one.
+ */
+export function PatientRegistrationForm({ patient }: { patient?: Record<string, any> } = {}) {
   const router = useRouter();
+  const isEdit = Boolean(patient?.id);
+
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<PatientFormValues>({ resolver: zodResolver(patientSchema) });
+  } = useForm<PatientFormValues>({
+    resolver: zodResolver(patientSchema),
+    // Dates arrive as ISO timestamps but the inputs are type=date.
+    defaultValues: patient
+      ? ({
+          ...patient,
+          dateOfBirth: patient.dateOfBirth
+            ? String(patient.dateOfBirth).slice(0, 10)
+            : "",
+        } as PatientFormValues)
+      : undefined,
+  });
 
   const { mutate, isPending } = useMutation({
     mutationFn: (data: PatientFormValues) =>
-      api.post("/patients", data).then((r) => r.data),
-    onSuccess: (patient) => {
-      toast.success(`Patient registered — MRN: ${patient.mrn}`);
-      router.push(`/patients/${patient.id}`);
+      isEdit
+        ? api.patch(`/patients/${patient!.id}`, data).then((r) => r.data)
+        : api.post("/patients", data).then((r) => r.data),
+    onSuccess: (saved) => {
+      toast.success(
+        isEdit ? "Patient details updated" : `Patient registered — MRN: ${saved.mrn}`,
+      );
+      router.push(`/patients/${saved.id}`);
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -130,7 +154,7 @@ export function PatientRegistrationForm() {
         </Button>
         <Button type="submit" disabled={isPending}>
           {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Register Patient
+          {isEdit ? "Save Changes" : "Register Patient"}
         </Button>
       </div>
     </form>

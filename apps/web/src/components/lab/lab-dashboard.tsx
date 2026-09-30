@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   FlaskConical, Search, Plus, Loader2, MoreHorizontal,
-  CheckCircle2, Beaker, AlertTriangle, Download,
+  CheckCircle2, Beaker, AlertTriangle, Download, Printer,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { exportToCsv } from "@/lib/csv-export";
@@ -188,6 +188,19 @@ export function LabDashboard() {
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => verify.mutate(o.id)} disabled={o.status !== "RESULTED"}>
                             <CheckCircle2 className="mr-2 h-4 w-4" />Verify Results
+                          </DropdownMenuItem>
+                          {/*
+                            A result nobody can hand over is only half a
+                            result: wards and patients still work on paper.
+                            Disabled until something has actually been
+                            entered, and the report itself says so when it is
+                            not yet verified.
+                          */}
+                          <DropdownMenuItem
+                            onClick={() => window.open(`/print/lab/${o.id}`, "_blank")}
+                            disabled={o.status === "PENDING" || o.status === "CANCELLED"}
+                          >
+                            <Printer className="mr-2 h-4 w-4" />Print Report
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

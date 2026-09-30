@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { api } from "@/lib/api-client";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,7 +39,7 @@ export function RecordPaymentModal({ invoice, onClose }: Props) {
       toast({ title: "Payment recorded" });
       onClose();
     },
-    onError: () => toast({ title: "Failed to record payment", variant: "destructive" }),
+    onError: (e) => toast({ title: apiErrorMessage(e, "Failed to record payment"), variant: "destructive" }),
   });
 
   return (

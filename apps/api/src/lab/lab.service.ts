@@ -9,7 +9,15 @@ import { AddLabResultsDto } from "./dto/add-lab-results.dto";
 const genOrderNo = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8);
 
 const ORDER_INCLUDE = {
-  patient: { select: { id: true, firstName: true, lastName: true, mrn: true } },
+  // Date of birth and sex are on a lab report because reference ranges
+  // depend on them: the same haemoglobin is normal for one patient and
+  // not for another.
+  patient: {
+    select: {
+      id: true, firstName: true, lastName: true, mrn: true,
+      dateOfBirth: true, gender: true, phone: true,
+    },
+  },
   requestedBy: { select: { firstName: true, lastName: true, specialization: true } },
   collectedBy: { select: { firstName: true, lastName: true } },
   results: {

@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, Request } from "@nestjs/common";
 import { VisitorsService } from "./visitors.service";
+import { CheckInVisitorDto } from "./dto/visitor.dto";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
@@ -12,7 +13,7 @@ export class VisitorsController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.VISITORS_MANAGE)
-  checkIn(@Body() body: any, @Request() req: any) {
+  checkIn(@Body() body: CheckInVisitorDto, @Request() req: any) {
     return this.service.checkIn(body, req.user.organizationId);
   }
 
