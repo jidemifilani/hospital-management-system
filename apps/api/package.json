@@ -16,6 +16,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "ts-node prisma/seed.ts",
     "db:studio": "prisma studio",
+    "audit:partitions": "ts-node prisma/audit-partitions.ts",
     "lint:fix": "eslint \"{src,test}/**/*.ts\" --fix"
   },
   "dependencies": {

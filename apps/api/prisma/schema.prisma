@@ -1098,7 +1098,12 @@ model RadiologyResult {
 }
 
 model AuditLog {
-  id             String      @id @default(cuid())
+  // Not `@id` on its own. The table is partitioned by month on createdAt for
+  // the seven-year retention, and Postgres requires the partition key to be
+  // part of the primary key. Nothing looks an audit row up by id alone —
+  // create, findMany and count are the only operations — so the composite key
+  // costs nothing. See docs/audit-retention.md.
+  id             String      @default(cuid())
   userId         String?
   action         AuditAction
   resource       String
@@ -1112,6 +1117,7 @@ model AuditLog {
   user         User?         @relation(fields: [userId], references: [id])
   organization Organization? @relation(fields: [organizationId], references: [id])
 
+  @@id([id, createdAt])
   @@index([userId])
   @@index([resource, resourceId])
   @@index([organizationId])
