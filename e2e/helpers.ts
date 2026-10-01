@@ -100,7 +100,11 @@ export async function login(page: Page) {
 
   if (!gotCookie) evidence += "; no session cookie was visible before the redirect";
 
-  await page.waitForURL(/\/dashboard/, { timeout: 30_000 }).catch(() => {
+  // 60s, not 30s. The config notes that this dev server compiles routes on
+  // first request, and a sign-in that the callback already answered 200 to has
+  // worked — what is left is the browser navigating and the dashboard route
+  // building. Failing at 30s reported a successful sign-in as a failure.
+  await page.waitForURL(/\/dashboard/, { timeout: 60_000 }).catch(() => {
     throw new Error(`Sign-in never reached the dashboard — ${evidence}.\n${SIGNIN_HINTS}`);
   });
 
