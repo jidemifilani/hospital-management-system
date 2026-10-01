@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { ThrottlerModule } from "@nestjs/throttler";
+import { RedisThrottlerStorage } from "./common/throttler/redis-throttler.storage";
 import { EventEmitterModule } from "@nestjs/event-emitter";
 import { ScheduleModule } from "@nestjs/schedule";
 import { BullModule } from "@nestjs/bullmq";
@@ -79,9 +80,16 @@ import { GlobalThrottlerGuard } from "./common/guards/global-throttler.guard";
     // web server's single IP. Login is tightened separately, per account, by
     // LoginThrottlerGuard: a per-IP login limit would let one attacker lock
     // out the whole hospital.
+    //
+    // The counters live in Redis, not in this process. In memory they reset on
+    // every restart and were kept per instance, so the login limit was worth a
+    // fresh ten attempts after each deploy and multiplied by however many
+    // instances were running. See RedisThrottlerStorage.
     ThrottlerModule.forRootAsync({
-      useFactory: () => ({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
         throttlers: [{ name: "default", ttl: 60_000, limit: 300 }],
+        storage: new RedisThrottlerStorage(config.getOrThrow("REDIS_URL")),
       }),
     }),
 
