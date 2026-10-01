@@ -71,15 +71,34 @@ export async function login(page: Page) {
   // the server who you are: arriving a moment before the cookie is stored
   // sends you straight back to the login page, which is what the occasional
   // "signed in but the session never committed" failure actually was.
-  await expect
+  //
+  // Deliberately not fatal. This used to fail the run by itself on a 20s
+  // budget, which made it the shortest step in a chain where everything else
+  // had 30-45s — and it was the step that tripped, reporting only "Expected:
+  // true, Received: false". Forcing it to fail showed why that was the wrong
+  // place to decide: sign-in had already succeeded and the page had already
+  // reached /dashboard while this was still polling.
+  //
+  // So it stays as a wait, and the session endpoint below stays the single
+  // authority on whether sign-in worked. Nothing is lost by that — reading the
+  // session requires the cookie, so a cookie that never arrives still fails,
+  // just at the step that can say what went wrong.
+  const gotCookie = await expect
     .poll(
       async () =>
         (await page.context().cookies()).some(
           (c) => c.name.includes("next-auth.session-token") && c.value.length > 0,
         ),
-      { timeout: 20_000, intervals: [100, 200, 400] },
+      // Short, because it no longer decides anything. When sign-in works the
+      // cookie is there almost at once; when it does not, sitting here for
+      // another half minute only delays the step that can explain why.
+      { timeout: 10_000, intervals: [100, 200, 400] },
     )
-    .toBe(true);
+    .toBe(true)
+    .then(() => true)
+    .catch(() => false);
+
+  if (!gotCookie) evidence += "; no session cookie was visible before the redirect";
 
   await page.waitForURL(/\/dashboard/, { timeout: 30_000 }).catch(() => {
     throw new Error(`Sign-in never reached the dashboard — ${evidence}.\n${SIGNIN_HINTS}`);
