@@ -75,3 +75,12 @@ backups/
 *.dump
 *.dump.enc
 *.manifest.enc
+
+# Compiled output belongs in each package's dist, which is where tsconfig puts
+# it. Copies committed next to the source shadowed the real build: the web app
+# resolved a stale packages/config/src/index.js and reported a function that
+# existed as not exported.
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.js.map
+packages/*/src/**/*.d.ts.map
