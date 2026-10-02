@@ -205,6 +205,11 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN: Object.values(PERMISSIONS),
   HOSPITAL_ADMIN: Object.values(PERMISSIONS),
   DOCTOR: [
+    // Ward rounds, consent and discharge are doctor work. Every other
+    // clinical role already had these; this one did not.
+    PERMISSIONS.WARD_ROUND_READ, PERMISSIONS.WARD_ROUND_MANAGE,
+    PERMISSIONS.CONSENT_READ, PERMISSIONS.CONSENT_MANAGE,
+    PERMISSIONS.DISCHARGE_READ, PERMISSIONS.DISCHARGE_MANAGE,
     PERMISSIONS.DOCUMENTS_READ, PERMISSIONS.DOCUMENTS_MANAGE, PERMISSIONS.DOCUMENTS_RESTRICTED,
     PERMISSIONS.PATIENTS_READ, PERMISSIONS.PATIENTS_UPDATE,
     PERMISSIONS.APPOINTMENTS_READ, PERMISSIONS.APPOINTMENTS_CREATE, PERMISSIONS.APPOINTMENTS_UPDATE,
@@ -309,6 +314,10 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.DASHBOARD_VIEW,
   ],
   CASHIER: [
+    // Taking payment at the till is the job this role is named for.
+    PERMISSIONS.POS_READ, PERMISSIONS.POS_SELL,
+    // Sign-in sends every role to /dashboard, so every role can read it.
+    PERMISSIONS.DASHBOARD_VIEW,
     PERMISSIONS.DOCUMENTS_READ,
     PERMISSIONS.BILLING_READ, PERMISSIONS.BILLING_CREATE, PERMISSIONS.BILLING_UPDATE,
     PERMISSIONS.PATIENTS_READ, PERMISSIONS.LEAVE_READ, PERMISSIONS.LEAVE_APPLY,
@@ -324,6 +333,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.SETTINGS_READ,
   ],
   LAB_TECHNOLOGIST: [
+    // Sign-in sends every role to /dashboard, so every role can read it.
+    PERMISSIONS.DASHBOARD_VIEW,
     PERMISSIONS.DOCUMENTS_READ, PERMISSIONS.DOCUMENTS_MANAGE,
     PERMISSIONS.PATIENTS_READ,
     PERMISSIONS.LAB_READ, PERMISSIONS.LAB_CREATE, PERMISSIONS.LAB_UPDATE,
@@ -337,6 +348,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.SETTINGS_READ,
   ],
   RADIOLOGIST: [
+    // Sign-in sends every role to /dashboard, so every role can read it.
+    PERMISSIONS.DASHBOARD_VIEW,
     PERMISSIONS.DOCUMENTS_READ, PERMISSIONS.DOCUMENTS_MANAGE,
     PERMISSIONS.PATIENTS_READ,
     PERMISSIONS.RADIOLOGY_READ, PERMISSIONS.RADIOLOGY_ORDER, PERMISSIONS.RADIOLOGY_RESULT,
@@ -347,6 +360,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.SETTINGS_READ,
   ],
   PHARMACIST: [
+    // Sign-in sends every role to /dashboard, so every role can read it.
+    PERMISSIONS.DASHBOARD_VIEW,
     PERMISSIONS.DOCUMENTS_READ,
     PERMISSIONS.PATIENTS_READ,
     PERMISSIONS.PHARMACY_READ, PERMISSIONS.PHARMACY_CREATE, PERMISSIONS.PHARMACY_UPDATE,
@@ -360,6 +375,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.SETTINGS_READ,
   ],
   HR_OFFICER: [
+    // Sign-in sends every role to /dashboard, so every role can read it.
+    PERMISSIONS.DASHBOARD_VIEW,
     PERMISSIONS.STAFF_READ, PERMISSIONS.STAFF_CREATE, PERMISSIONS.STAFF_UPDATE,
     PERMISSIONS.ROSTER_READ, PERMISSIONS.ROSTER_MANAGE,
     PERMISSIONS.LEAVE_READ, PERMISSIONS.LEAVE_MANAGE,
@@ -377,6 +394,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.SETTINGS_READ,
   ],
   AUDITOR: [
+    // Sign-in sends every role to /dashboard, so every role can read it.
+    PERMISSIONS.DASHBOARD_VIEW,
     PERMISSIONS.DOCUMENTS_READ,
     PERMISSIONS.ADMIN_AUDIT, PERMISSIONS.BILLING_READ,
     PERMISSIONS.ATTENDANCE_READ, PERMISSIONS.INCIDENTS_READ,
@@ -435,3 +454,34 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.DASHBOARD_VIEW,
   ],
 };
+
+/**
+ * Roles that are not subject to permission checks.
+ *
+ * Kept beside the check that honours them rather than written out at each call
+ * site, so adding a third one cannot reach the API and miss the navigation, or
+ * the other way round.
+ */
+export const UNRESTRICTED_ROLES = ["SUPER_ADMIN", "HOSPITAL_ADMIN"] as const;
+
+/**
+ * Whether a role is allowed to do something.
+ *
+ * This is the only implementation of that question. The API guard that refuses
+ * the request and the sidebar that decides whether to offer the link both call
+ * it, because two implementations of the same rule drift: the symptom is a
+ * menu full of links that answer 403, or — worse, and silent — a feature
+ * somebody is entitled to use that nothing ever offers them.
+ *
+ * Hiding a link is not a security control. It decides what to show; the guard
+ * decides what is allowed, and it is the guard that matters if someone types
+ * the URL.
+ */
+export function hasPermission(
+  role: string | null | undefined,
+  permission: Permission,
+): boolean {
+  if (!role) return false;
+  if ((UNRESTRICTED_ROLES as readonly string[]).includes(role)) return true;
+  return (ROLE_PERMISSIONS[role] ?? []).includes(permission);
+}

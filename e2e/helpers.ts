@@ -39,11 +39,14 @@ export async function waitForApi(request: APIRequestContext, budgetMs = 60_000) 
   );
 }
 
-export async function login(page: Page) {
+/** A seeded account other than the admin, for checking what a role is shown. */
+export const DOCTOR = { email: "dr.adeyemi@caresync.ng", password: "Doctor@123456" };
+
+export async function login(page: Page, who: { email: string; password: string } = ADMIN) {
   await waitForApi(page.request);
   await page.goto("/auth/login");
-  await page.getByLabel(/email/i).fill(ADMIN.email);
-  await page.getByLabel(/password/i).fill(ADMIN.password);
+  await page.getByLabel(/email/i).fill(who.email);
+  await page.getByLabel(/password/i).fill(who.password);
 
   // Record the sign-in exchange purely as evidence. NextAuth answers 200 even
   // when authorize() rejected, putting the reason in the returned URL, so
