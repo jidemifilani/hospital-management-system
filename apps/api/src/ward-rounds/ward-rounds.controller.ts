@@ -4,6 +4,11 @@ import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { PERMISSIONS } from "@hms/config";
+import {
+  CompleteWardRoundDto,
+  CreateWardRoundDto,
+  UpdateWardRoundDto,
+} from "./dto/ward-round.dto";
 
 @Controller("ward-rounds")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -18,7 +23,7 @@ export class WardRoundsController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.WARD_ROUND_MANAGE)
-  create(@Body() body: any, @Request() req: any) {
+  create(@Body() body: CreateWardRoundDto, @Request() req: any) {
     return this.svc.create(body, req.user.staffId, req.user.organizationId);
   }
 
@@ -36,13 +41,13 @@ export class WardRoundsController {
 
   @Patch(":id")
   @RequirePermissions(PERMISSIONS.WARD_ROUND_MANAGE)
-  update(@Param("id") id: string, @Body() body: any, @Request() req: any) {
+  update(@Param("id") id: string, @Body() body: UpdateWardRoundDto, @Request() req: any) {
     return this.svc.update(id, body, req.user.organizationId);
   }
 
   @Patch(":id/complete")
   @RequirePermissions(PERMISSIONS.WARD_ROUND_MANAGE)
-  complete(@Param("id") id: string, @Body() body: any, @Request() req: any) {
+  complete(@Param("id") id: string, @Body() body: CompleteWardRoundDto, @Request() req: any) {
     return this.svc.complete(id, body, req.user.organizationId);
   }
 }

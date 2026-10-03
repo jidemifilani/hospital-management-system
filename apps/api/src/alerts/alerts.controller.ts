@@ -4,6 +4,7 @@ import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { PERMISSIONS } from "@hms/config";
+import { CreateAlertDto, ResolveAlertDto } from "./dto/alert.dto";
 
 @Controller("alerts")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -12,7 +13,7 @@ export class AlertsController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.ALERTS_MANAGE)
-  create(@Body() body: any, @Req() req: any) {
+  create(@Body() body: CreateAlertDto, @Req() req: any) {
     return this.alertsService.create(body, req.user.staffId, req.user.organizationId);
   }
 
@@ -36,7 +37,7 @@ export class AlertsController {
 
   @Patch(":id/resolve")
   @RequirePermissions(PERMISSIONS.ALERTS_MANAGE)
-  resolve(@Param("id") id: string, @Body() body: any, @Req() req: any) {
+  resolve(@Param("id") id: string, @Body() body: ResolveAlertDto, @Req() req: any) {
     return this.alertsService.resolve(id, req.user.staffId, body, req.user.organizationId);
   }
 }

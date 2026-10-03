@@ -4,6 +4,12 @@ import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { PERMISSIONS } from "@hms/config";
+import {
+  CreateConsentFormDto,
+  RevokeConsentFormDto,
+  SignConsentFormDto,
+  UpdateConsentStatusDto,
+} from "./dto/consent.dto";
 
 @Controller("consent")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -18,7 +24,7 @@ export class ConsentController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.CONSENT_MANAGE)
-  create(@Body() body: any, @Request() req: any) {
+  create(@Body() body: CreateConsentFormDto, @Request() req: any) {
     return this.svc.create(body, req.user.staffId, req.user.organizationId);
   }
 
@@ -36,19 +42,19 @@ export class ConsentController {
 
   @Patch(":id/sign")
   @RequirePermissions(PERMISSIONS.CONSENT_MANAGE)
-  sign(@Param("id") id: string, @Body() body: any, @Request() req: any) {
+  sign(@Param("id") id: string, @Body() body: SignConsentFormDto, @Request() req: any) {
     return this.svc.sign(id, body, req.user.organizationId);
   }
 
   @Patch(":id/revoke")
   @RequirePermissions(PERMISSIONS.CONSENT_MANAGE)
-  revoke(@Param("id") id: string, @Body() body: any, @Request() req: any) {
+  revoke(@Param("id") id: string, @Body() body: RevokeConsentFormDto, @Request() req: any) {
     return this.svc.revoke(id, body, req.user.organizationId);
   }
 
   @Patch(":id/status")
   @RequirePermissions(PERMISSIONS.CONSENT_MANAGE)
-  updateStatus(@Param("id") id: string, @Body() body: any, @Request() req: any) {
+  updateStatus(@Param("id") id: string, @Body() body: UpdateConsentStatusDto, @Request() req: any) {
     return this.svc.updateStatus(id, body, req.user.organizationId);
   }
 }

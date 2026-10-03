@@ -4,6 +4,11 @@ import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { PERMISSIONS } from "@hms/config";
+import {
+  AdministerMarRecordDto,
+  CreateMarRecordDto,
+  SkipMarRecordDto,
+} from "./dto/mar.dto";
 
 @Controller("mar")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -12,7 +17,7 @@ export class MarController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.MAR_MANAGE)
-  create(@Body() body: any, @Req() req: any) {
+  create(@Body() body: CreateMarRecordDto, @Req() req: any) {
     return this.marService.create(body, req.user.organizationId);
   }
 
@@ -36,13 +41,13 @@ export class MarController {
 
   @Patch(":id/administer")
   @RequirePermissions(PERMISSIONS.MAR_MANAGE)
-  administer(@Param("id") id: string, @Body() body: any, @Req() req: any) {
+  administer(@Param("id") id: string, @Body() body: AdministerMarRecordDto, @Req() req: any) {
     return this.marService.administer(id, req.user.staffId, body, req.user.organizationId);
   }
 
   @Patch(":id/skip")
   @RequirePermissions(PERMISSIONS.MAR_MANAGE)
-  skip(@Param("id") id: string, @Body() body: any, @Req() req: any) {
+  skip(@Param("id") id: string, @Body() body: SkipMarRecordDto, @Req() req: any) {
     return this.marService.skip(id, body, req.user.organizationId);
   }
 }
