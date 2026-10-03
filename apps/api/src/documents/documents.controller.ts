@@ -19,14 +19,22 @@ import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
-import { PERMISSIONS, ROLE_PERMISSIONS } from "@hms/config";
+import { PERMISSIONS, hasPermission } from "@hms/config";
 import type { JwtPayload } from "@hms/types";
 import type { DocumentCategory } from "@prisma/client";
 import { UploadDocumentDto, RemoveDocumentDto } from "./dto/document.dto";
 
-/** Restricted records are gated on a permission the ordinary reader lacks. */
+/**
+ * Restricted records are gated on a permission the ordinary reader lacks.
+ *
+ * Through hasPermission rather than reading ROLE_PERMISSIONS directly, which
+ * is what this did: that spelling misses the admin bypass, so it worked only
+ * because the admin roles happen to list the permission as well. It is the
+ * same rule the guard and the sidebar use, and the only one worth having two
+ * of is none.
+ */
 const canSeeRestricted = (user: JwtPayload) =>
-  (ROLE_PERMISSIONS[user.role] ?? []).includes(PERMISSIONS.DOCUMENTS_RESTRICTED);
+  hasPermission(user.role, PERMISSIONS.DOCUMENTS_RESTRICTED);
 
 @Controller("documents")
 @UseGuards(JwtAuthGuard, PermissionsGuard)

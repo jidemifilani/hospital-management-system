@@ -197,20 +197,73 @@ describe("what each role is offered", () => {
     expect(navItems.filter((n) => hasPermission("", valueOf(n.permission)))).toEqual([]);
   });
 
-  it("offers a doctor the work a doctor does", () => {
-    const doctor = visibleTo("DOCTOR");
+  /**
+   * The screens each job cannot do without.
+   *
+   * Nothing in the configuration can tell you that a doctor needs discharge or
+   * that a cashier needs a till — that is knowledge about the hospital, not
+   * about the code, and when it lived only in people's heads a doctor went
+   * without ward rounds, consent and discharge for as long as the sidebar
+   * showed everything to everyone and hid the omission.
+   *
+   * So it is written down here. The list is deliberately short: the few things
+   * that, if the holder of that job could not reach them, would mean the role
+   * is broken rather than merely narrow. Adding to it is how you record a
+   * decision about what a job needs.
+   */
+  const MUST_BE_ABLE_TO_REACH: Record<string, string[]> = {
+    DOCTOR: [
+      "/patients",
+      "/encounters",
+      "/admissions",
+      "/lab",
+      "/pharmacy",
+      // The three a doctor was missing.
+      "/ward-rounds",
+      "/consent",
+      "/discharge",
+    ],
+    NURSE: [
+      "/patients",
+      "/encounters",
+      "/admissions",
+      "/mar",
+      "/triage",
+      "/handover",
+      "/ward-rounds",
+    ],
+    RECEPTIONIST: ["/patients", "/appointments", "/opd-queue", "/visitors"],
+    // The till: only the admin roles could open one.
+    CASHIER: ["/patients", "/billing", "/pos"],
+    LAB_TECHNOLOGIST: ["/patients", "/lab"],
+    RADIOLOGIST: ["/patients", "/radiology"],
+    PHARMACIST: ["/patients", "/pharmacy"],
+    HR_OFFICER: ["/staff", "/payroll", "/roster", "/leave", "/attendance", "/appraisals"],
+    AUDITOR: ["/admin/audit", "/documents"],
+    DEPARTMENT_HEAD: ["/staff", "/patients", "/appointments"],
+  };
 
-    // All three were missing while nurses and department heads had them, so a
-    // doctor's menu had no discharge on it.
-    expect(doctor).toEqual(
-      expect.arrayContaining(["/ward-rounds", "/consent", "/discharge", "/encounters", "/lab"]),
-    );
+  it("lets every job reach the screens that job needs", () => {
+    const missing: string[] = [];
+
+    for (const [role, required] of Object.entries(MUST_BE_ABLE_TO_REACH)) {
+      const offered = visibleTo(role);
+      for (const href of required) {
+        if (!offered.includes(href)) missing.push(`${role} cannot reach ${href}`);
+      }
+    }
+
+    expect(missing).toEqual([]);
   });
 
-  it("offers a cashier the till", () => {
-    // Only the two admin roles held any pos:* permission, so the role named
-    // after operating a till could not open one.
-    expect(visibleTo("CASHIER")).toContain("/pos");
+  it("expects something of every role that is not an administrator", () => {
+    // A role added to the system with nothing expected of it here would be
+    // checked by none of the above, which is how this stops being a guard.
+    const unlisted = Object.keys(ROLE_PERMISSIONS)
+      .filter((role) => !["SUPER_ADMIN", "HOSPITAL_ADMIN"].includes(role))
+      .filter((role) => !MUST_BE_ABLE_TO_REACH[role]);
+
+    expect(unlisted).toEqual([]);
   });
 
   it("would notice if the key-to-value lookup broke", () => {
