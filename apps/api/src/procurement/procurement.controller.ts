@@ -5,6 +5,7 @@ import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
+import { CreatePurchaseOrderDto } from "./dto/purchase-order.dto";
 
 @Controller("procurement")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -13,7 +14,7 @@ export class ProcurementController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.PROCUREMENT_MANAGE)
-  create(@Body() dto: any, @CurrentUser() u: any) {
+  create(@Body() dto: CreatePurchaseOrderDto, @CurrentUser() u: any) {
     return this.service.create(dto, u.staffId, u.organizationId);
   }
 

@@ -18,6 +18,7 @@ import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
+import { UpdateUserStatusDto } from "./dto/update-user-status.dto";
 import type { JwtPayload } from "@hms/types";
 
 @Controller("users")
@@ -63,10 +64,10 @@ export class UsersController {
   @RequirePermissions(PERMISSIONS.ADMIN_USERS)
   updateStatus(
     @Param("id") id: string,
-    @Body("status") status: "ACTIVE" | "INACTIVE" | "SUSPENDED",
+    @Body() dto: UpdateUserStatusDto,
     @CurrentUser() user: JwtPayload,
   ) {
-    return this.usersService.updateStatus(id, status, user.organizationId!);
+    return this.usersService.updateStatus(id, dto.status, user.organizationId!);
   }
 
   @Post(":id/reset-password")

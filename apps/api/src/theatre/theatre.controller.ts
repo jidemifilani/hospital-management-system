@@ -5,6 +5,10 @@ import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
+import {
+  CreateTheatreBookingDto,
+  UpdateTheatreBookingStatusDto,
+} from "./dto/theatre.dto";
 
 @Controller("theatre")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -13,7 +17,7 @@ export class TheatreController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.THEATRE_MANAGE)
-  create(@Body() dto: any, @CurrentUser() u: any) {
+  create(@Body() dto: CreateTheatreBookingDto, @CurrentUser() u: any) {
     return this.service.create(dto, u.staffId, u.organizationId);
   }
 
@@ -42,7 +46,7 @@ export class TheatreController {
 
   @Patch(":id/status")
   @RequirePermissions(PERMISSIONS.THEATRE_MANAGE)
-  updateStatus(@Param("id") id: string, @Body() dto: any, @CurrentUser() u: any) {
+  updateStatus(@Param("id") id: string, @Body() dto: UpdateTheatreBookingStatusDto, @CurrentUser() u: any) {
     return this.service.updateStatus(id, dto, u.organizationId);
   }
 }

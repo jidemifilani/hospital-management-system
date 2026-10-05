@@ -4,6 +4,7 @@ import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { PERMISSIONS } from "@hms/config";
+import { CreatePayrollDto, UpdatePayrollStatusDto } from "./dto/payroll.dto";
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller("payroll")
@@ -12,7 +13,7 @@ export class PayrollController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.PAYROLL_MANAGE)
-  create(@Body() body: any, @Request() req: any) {
+  create(@Body() body: CreatePayrollDto, @Request() req: any) {
     return this.service.create(body, req.user.organizationId);
   }
 
@@ -41,7 +42,7 @@ export class PayrollController {
 
   @Patch(":id/status")
   @RequirePermissions(PERMISSIONS.PAYROLL_MANAGE)
-  updateStatus(@Param("id") id: string, @Body() body: any, @Request() req: any) {
+  updateStatus(@Param("id") id: string, @Body() body: UpdatePayrollStatusDto, @Request() req: any) {
     return this.service.updateStatus(id, body.status, req.user.organizationId, body);
   }
 }

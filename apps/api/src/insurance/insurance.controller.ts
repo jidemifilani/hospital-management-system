@@ -5,6 +5,10 @@ import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
+import {
+  CreateInsuranceClaimDto,
+  UpdateInsuranceClaimStatusDto,
+} from "./dto/insurance.dto";
 
 @Controller("insurance")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -13,7 +17,7 @@ export class InsuranceController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.INSURANCE_MANAGE)
-  create(@Body() dto: any, @CurrentUser() u: any) {
+  create(@Body() dto: CreateInsuranceClaimDto, @CurrentUser() u: any) {
     return this.service.create(dto, u.organizationId);
   }
 
@@ -37,7 +41,7 @@ export class InsuranceController {
 
   @Patch(":id/status")
   @RequirePermissions(PERMISSIONS.INSURANCE_MANAGE)
-  updateStatus(@Param("id") id: string, @Body() dto: any, @CurrentUser() u: any) {
+  updateStatus(@Param("id") id: string, @Body() dto: UpdateInsuranceClaimStatusDto, @CurrentUser() u: any) {
     return this.service.updateStatus(id, dto.status, dto, u.organizationId);
   }
 }

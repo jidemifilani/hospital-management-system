@@ -17,6 +17,14 @@ export class SiteSettingsController {
     return this.service.get();
   }
 
+  /**
+   * Content and theme are open-ended on purpose, so both take a loose body.
+   *
+   * The site settings editor sends whatever keys the page being edited has, and
+   * the set grows whenever a section is added. A DTO would have to be extended
+   * for each one, and the pipe would reject the rest in the meantime. Both are
+   * behind ADMIN_CONFIG, and the service decides what it stores.
+   */
   @Patch("content")
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(PERMISSIONS.ADMIN_CONFIG)

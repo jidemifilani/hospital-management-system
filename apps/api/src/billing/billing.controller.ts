@@ -58,6 +58,17 @@ export class BillingController {
     return this.billing.findOne(id, user.organizationId!);
   }
 
+  /**
+   * Deliberately an `any` body, and the one in the API that should stay that
+   * way.
+   *
+   * Paystack decides this shape, not us, and sends more fields than we read.
+   * The global pipe runs with `whitelist` and `forbidNonWhitelisted`, so a DTO
+   * here would strip or reject a perfectly good callback and lose the payment
+   * it was telling us about. Authenticity comes from the HMAC over the raw
+   * body, checked below, which is a stronger guarantee than any field check:
+   * a forged payload fails the signature whatever its shape.
+   */
   @Post("webhooks/paystack")
   async paystackWebhook(
     @Req() req: RawBodyRequest<Request>,

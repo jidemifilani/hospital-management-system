@@ -20,6 +20,8 @@ import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
+import { UpdateDiagnosisDto } from "./dto/update-diagnosis.dto";
+import { UpdateClinicalNoteDto } from "./dto/update-clinical-note.dto";
 import type { JwtPayload } from "@hms/types";
 
 @ApiTags("emr")
@@ -80,7 +82,7 @@ export class EmrController {
   @RequirePermissions(PERMISSIONS.PATIENTS_UPDATE)
   updateNote(
     @Param("id") id: string,
-    @Body() dto: Partial<CreateClinicalNoteDto>,
+    @Body() dto: UpdateClinicalNoteDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return this.emr.updateNote(id, dto, user.staffId!, user.organizationId!);
@@ -104,7 +106,7 @@ export class EmrController {
   @RequirePermissions(PERMISSIONS.PATIENTS_UPDATE)
   updateDiagnosis(
     @Param("id") id: string,
-    @Body() body: { status?: string; resolvedAt?: string; notes?: string },
+    @Body() body: UpdateDiagnosisDto,
   ) {
     return this.emr.updateDiagnosis(id, {
       ...body,

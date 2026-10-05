@@ -11,7 +11,6 @@ import {
   DefaultValuePipe,
   BadRequestException,
 } from "@nestjs/common";
-import { AppointmentStatus } from "@prisma/client";
 import { AppointmentsService } from "./appointments.service";
 import { CreateAppointmentDto } from "./dto/create-appointment.dto";
 import { UpdateAppointmentDto } from "./dto/update-appointment.dto";
@@ -20,6 +19,7 @@ import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
+import { UpdateAppointmentStatusDto } from "./dto/update-appointment-status.dto";
 import type { JwtPayload } from "@hms/types";
 
 @Controller("appointments")
@@ -95,7 +95,7 @@ export class AppointmentsController {
   @RequirePermissions(PERMISSIONS.APPOINTMENTS_UPDATE)
   updateStatus(
     @Param("id") id: string,
-    @Body() body: { status: AppointmentStatus; cancelReason?: string },
+    @Body() body: UpdateAppointmentStatusDto,
     @CurrentUser() user: JwtPayload,
   ) {
     if (!body.status) throw new BadRequestException("status is required");

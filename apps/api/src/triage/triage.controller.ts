@@ -5,6 +5,7 @@ import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
+import { UpdateTriageStatusDto } from "./dto/update-triage-status.dto";
 import { CreateTriageDto } from "./dto/create-triage.dto";
 
 @Controller("triage")
@@ -43,7 +44,7 @@ export class TriageController {
 
   @Patch(":id/status")
   @RequirePermissions(PERMISSIONS.TRIAGE_MANAGE)
-  updateStatus(@Param("id") id: string, @Body() dto: any, @CurrentUser() u: any) {
+  updateStatus(@Param("id") id: string, @Body() dto: UpdateTriageStatusDto, @CurrentUser() u: any) {
     return this.service.updateStatus(id, dto, u.organizationId);
   }
 }

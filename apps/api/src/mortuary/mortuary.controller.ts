@@ -5,6 +5,7 @@ import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
+import { AdmitToMortuaryDto, ReleaseFromMortuaryDto } from "./dto/mortuary.dto";
 
 @Controller("mortuary")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -13,7 +14,7 @@ export class MortuaryController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.MORTUARY_MANAGE)
-  admit(@Body() dto: any, @CurrentUser() u: any) {
+  admit(@Body() dto: AdmitToMortuaryDto, @CurrentUser() u: any) {
     return this.service.admit(dto, u.staffId, u.organizationId);
   }
 
@@ -37,7 +38,7 @@ export class MortuaryController {
 
   @Patch(":id/release")
   @RequirePermissions(PERMISSIONS.MORTUARY_MANAGE)
-  release(@Param("id") id: string, @Body() dto: any, @CurrentUser() u: any) {
+  release(@Param("id") id: string, @Body() dto: ReleaseFromMortuaryDto, @CurrentUser() u: any) {
     return this.service.release(id, dto, u.organizationId);
   }
 
