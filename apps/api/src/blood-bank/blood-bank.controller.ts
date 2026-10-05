@@ -5,6 +5,11 @@ import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
+import {
+  AddBloodDonorDto,
+  AddBloodUnitDto,
+  CreateBloodRequestDto,
+} from "./dto/blood-bank.dto";
 
 @Controller("blood-bank")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -25,7 +30,7 @@ export class BloodBankController {
 
   @Post("inventory")
   @RequirePermissions(PERMISSIONS.BLOOD_BANK_MANAGE)
-  addUnit(@Body() dto: any, @CurrentUser() u: any) {
+  addUnit(@Body() dto: AddBloodUnitDto, @CurrentUser() u: any) {
     return this.service.addUnit(dto, u.organizationId);
   }
 
@@ -43,7 +48,7 @@ export class BloodBankController {
 
   @Post("donors")
   @RequirePermissions(PERMISSIONS.BLOOD_BANK_MANAGE)
-  addDonor(@Body() dto: any, @CurrentUser() u: any) {
+  addDonor(@Body() dto: AddBloodDonorDto, @CurrentUser() u: any) {
     return this.service.addDonor(dto, u.organizationId);
   }
 
@@ -55,7 +60,7 @@ export class BloodBankController {
 
   @Post("requests")
   @RequirePermissions(PERMISSIONS.BLOOD_BANK_MANAGE)
-  createRequest(@Body() dto: any, @CurrentUser() u: any) {
+  createRequest(@Body() dto: CreateBloodRequestDto, @CurrentUser() u: any) {
     return this.service.createRequest(dto, u.staffId ?? u.sub, u.organizationId);
   }
 

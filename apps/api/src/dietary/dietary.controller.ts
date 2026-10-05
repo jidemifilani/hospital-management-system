@@ -5,6 +5,7 @@ import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
+import { CreateDietOrderDto, RecordMealDto } from "./dto/dietary.dto";
 
 @Controller("dietary")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -13,7 +14,7 @@ export class DietaryController {
 
   @Post("orders")
   @RequirePermissions(PERMISSIONS.DIETARY_MANAGE)
-  createOrder(@Body() dto: any, @CurrentUser() u: any) {
+  createOrder(@Body() dto: CreateDietOrderDto, @CurrentUser() u: any) {
     return this.service.createOrder(dto, u.staffId, u.organizationId);
   }
 
@@ -47,7 +48,7 @@ export class DietaryController {
 
   @Post("meals")
   @RequirePermissions(PERMISSIONS.DIETARY_MANAGE)
-  recordMeal(@Body() dto: any, @CurrentUser() u: any) {
+  recordMeal(@Body() dto: RecordMealDto, @CurrentUser() u: any) {
     return this.service.recordMeal(dto, u.organizationId);
   }
 

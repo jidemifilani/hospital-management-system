@@ -4,6 +4,11 @@ import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { PERMISSIONS } from "@hms/config";
+import {
+  CreateAppraisalDto,
+  UpdateAppraisalDto,
+  UpdateAppraisalStatusDto,
+} from "./dto/appraisal.dto";
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller("appraisals")
@@ -12,7 +17,7 @@ export class AppraisalsController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.APPRAISALS_MANAGE)
-  create(@Body() body: any, @Request() req: any) {
+  create(@Body() body: CreateAppraisalDto, @Request() req: any) {
     return this.service.create(body, req.user.organizationId);
   }
 
@@ -36,13 +41,13 @@ export class AppraisalsController {
 
   @Patch(":id")
   @RequirePermissions(PERMISSIONS.APPRAISALS_MANAGE)
-  update(@Param("id") id: string, @Body() body: any, @Request() req: any) {
+  update(@Param("id") id: string, @Body() body: UpdateAppraisalDto, @Request() req: any) {
     return this.service.update(id, body, req.user.organizationId);
   }
 
   @Patch(":id/status")
   @RequirePermissions(PERMISSIONS.APPRAISALS_MANAGE)
-  updateStatus(@Param("id") id: string, @Body() body: any, @Request() req: any) {
+  updateStatus(@Param("id") id: string, @Body() body: UpdateAppraisalStatusDto, @Request() req: any) {
     return this.service.updateStatus(id, body.status, req.user.organizationId);
   }
 }

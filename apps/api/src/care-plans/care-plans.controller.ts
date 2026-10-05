@@ -5,6 +5,11 @@ import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
+import {
+  AddCarePlanTaskDto,
+  CreateCarePlanDto,
+  UpdateCarePlanTaskDto,
+} from "./dto/care-plan.dto";
 
 @Controller("care-plans")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -13,7 +18,7 @@ export class CarePlansController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.CARE_PLAN_MANAGE)
-  create(@Body() dto: any, @CurrentUser() u: any) {
+  create(@Body() dto: CreateCarePlanDto, @CurrentUser() u: any) {
     return this.service.create(dto, u.staffId, u.organizationId);
   }
 
@@ -47,13 +52,13 @@ export class CarePlansController {
 
   @Post(":id/tasks")
   @RequirePermissions(PERMISSIONS.CARE_PLAN_MANAGE)
-  addTask(@Param("id") id: string, @Body() dto: any, @CurrentUser() u: any) {
+  addTask(@Param("id") id: string, @Body() dto: AddCarePlanTaskDto, @CurrentUser() u: any) {
     return this.service.addTask(id, dto, u.organizationId);
   }
 
   @Patch("tasks/:taskId")
   @RequirePermissions(PERMISSIONS.CARE_PLAN_MANAGE)
-  updateTask(@Param("taskId") taskId: string, @Body() dto: any, @CurrentUser() u: any) {
+  updateTask(@Param("taskId") taskId: string, @Body() dto: UpdateCarePlanTaskDto, @CurrentUser() u: any) {
     return this.service.updateTask(taskId, dto, u.organizationId);
   }
 }
