@@ -54,7 +54,14 @@ export class FeedbackService {
     return record;
   }
 
-  async respond(id: string, data: { response: string; status: string }, respondedById: string, organizationId: string) {
+  // `status` is optional, as the default below has always shown. The parameter
+  // said otherwise, and nothing noticed while the controller passed an `any`.
+  async respond(
+    id: string,
+    data: { response: string; status?: string },
+    respondedById: string,
+    organizationId: string,
+  ) {
     await this.findOne(id, organizationId);
     return this.prisma.patientFeedback.update({
       where: { id },

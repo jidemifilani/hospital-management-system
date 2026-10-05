@@ -4,6 +4,10 @@ import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { PERMISSIONS } from "@hms/config";
+import {
+  CompleteDischargeRecordDto,
+  CreateDischargeRecordDto,
+} from "./dto/discharge.dto";
 
 @Controller("discharge")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -18,7 +22,7 @@ export class DischargeController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.DISCHARGE_MANAGE)
-  create(@Body() body: any, @Request() req: any) {
+  create(@Body() body: CreateDischargeRecordDto, @Request() req: any) {
     return this.svc.create(body, req.user.staffId, req.user.organizationId);
   }
 
@@ -36,7 +40,7 @@ export class DischargeController {
 
   @Patch(":id/complete")
   @RequirePermissions(PERMISSIONS.DISCHARGE_MANAGE)
-  complete(@Param("id") id: string, @Body() body: any, @Request() req: any) {
+  complete(@Param("id") id: string, @Body() body: CompleteDischargeRecordDto, @Request() req: any) {
     return this.svc.complete(id, body, req.user.organizationId);
   }
 

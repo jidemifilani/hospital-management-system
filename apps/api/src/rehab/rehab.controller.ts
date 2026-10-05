@@ -4,6 +4,11 @@ import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { PERMISSIONS } from "@hms/config";
+import {
+  CompleteRehabSessionDto,
+  CreateRehabSessionDto,
+  UpdateRehabStatusDto,
+} from "./dto/rehab.dto";
 
 @Controller("rehab")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -12,7 +17,7 @@ export class RehabController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.REHAB_MANAGE)
-  create(@Body() body: any, @Req() req: any) {
+  create(@Body() body: CreateRehabSessionDto, @Req() req: any) {
     return this.rehabService.create(body, req.user.organizationId);
   }
 
@@ -42,13 +47,13 @@ export class RehabController {
 
   @Patch(":id/complete")
   @RequirePermissions(PERMISSIONS.REHAB_MANAGE)
-  complete(@Param("id") id: string, @Body() body: any, @Req() req: any) {
+  complete(@Param("id") id: string, @Body() body: CompleteRehabSessionDto, @Req() req: any) {
     return this.rehabService.complete(id, body, req.user.organizationId);
   }
 
   @Patch(":id/status")
   @RequirePermissions(PERMISSIONS.REHAB_MANAGE)
-  updateStatus(@Param("id") id: string, @Body() body: any, @Req() req: any) {
+  updateStatus(@Param("id") id: string, @Body() body: UpdateRehabStatusDto, @Req() req: any) {
     return this.rehabService.updateStatus(id, body.status, req.user.organizationId);
   }
 }

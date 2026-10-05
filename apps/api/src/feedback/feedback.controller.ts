@@ -4,6 +4,7 @@ import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { PERMISSIONS } from "@hms/config";
+import { CreateFeedbackDto, RespondToFeedbackDto } from "./dto/feedback.dto";
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller("feedback")
@@ -12,7 +13,7 @@ export class FeedbackController {
 
   @Post()
   @RequirePermissions(PERMISSIONS.FEEDBACK_MANAGE)
-  create(@Body() body: any, @Request() req: any) {
+  create(@Body() body: CreateFeedbackDto, @Request() req: any) {
     return this.service.create(body, req.user.organizationId);
   }
 
@@ -36,7 +37,7 @@ export class FeedbackController {
 
   @Patch(":id/respond")
   @RequirePermissions(PERMISSIONS.FEEDBACK_MANAGE)
-  respond(@Param("id") id: string, @Body() body: any, @Request() req: any) {
+  respond(@Param("id") id: string, @Body() body: RespondToFeedbackDto, @Request() req: any) {
     return this.service.respond(id, body, req.user.staffId, req.user.organizationId);
   }
 }
