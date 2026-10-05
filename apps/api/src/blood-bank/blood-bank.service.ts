@@ -28,9 +28,13 @@ export class BloodBankService {
     });
   }
 
+  // collectedAt is optional: the Add Unit dialog does not collect it, and a
+  // unit being entered was collected today unless stated. It used to be
+  // declared as required while the screen never sent it, so `new Date()` below
+  // was handed `undefined` and produced an Invalid Date.
   async addUnit(data: {
     bloodGroup: string; volume?: number; donorId?: string;
-    collectedAt: string; expiresAt: string; notes?: string;
+    collectedAt?: string; expiresAt: string; notes?: string;
   }, organizationId: string) {
     return this.prisma.bloodUnit.create({
       data: {
@@ -38,7 +42,7 @@ export class BloodBankService {
         bloodGroup: data.bloodGroup as any,
         volume: data.volume ?? 450,
         donorId: data.donorId,
-        collectedAt: new Date(data.collectedAt),
+        collectedAt: data.collectedAt ? new Date(data.collectedAt) : new Date(),
         expiresAt: new Date(data.expiresAt),
         notes: data.notes,
         organizationId,

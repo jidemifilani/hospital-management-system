@@ -63,16 +63,36 @@ export class AddBloodUnitDto {
   volume?: number;
 
   /**
-   * Both dates are required, because the service calls `new Date()` on each of
-   * them unconditionally. Absent, that produced an Invalid Date rather than a
-   * refusal — and for the expiry that is a unit the expiry sweep can never
-   * flag as out of date, sitting in the fridge looking usable.
+   * Optional, and defaulted to now by the service. The Add Unit dialog does
+   * not collect it — a unit being entered was collected today unless someone
+   * says otherwise — so requiring it here would have rejected every request
+   * that screen makes.
    */
   @IsDateString()
-  collectedAt: string;
+  @IsOptional()
+  collectedAt?: string;
 
+  /**
+   * Required, and the form does send it. The service calls `new Date()` on it
+   * unconditionally, so absent it produced an Invalid Date rather than a
+   * refusal: a unit the expiry sweep can never flag as out of date, sitting in
+   * the fridge looking usable.
+   */
   @IsDateString()
   expiresAt: string;
+
+  /**
+   * Accepted because the Add Unit dialog sends it, and the pipe would
+   * otherwise reject the whole request as having an unexpected property.
+   *
+   * Note that nothing stores it: the service writes `donorId` and has no use
+   * for a free-text name. So a donor name typed into that form is discarded,
+   * which is a gap in the screen rather than in this DTO.
+   */
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  donorName?: string;
 
   @IsString()
   @IsOptional()

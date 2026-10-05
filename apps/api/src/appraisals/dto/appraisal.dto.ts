@@ -2,6 +2,7 @@ import { AppraisalPeriod, AppraisalStatus } from "@prisma/client";
 import {
   IsEnum,
   IsInt,
+  IsNumber,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -55,7 +56,43 @@ export class CreateAppraisalDto {
   reviewerComments?: string;
 }
 
+/**
+ * The review itself: the four scores and the written assessment.
+ *
+ * The scores nearly went missing from here. The service reads them through a
+ * computed key — `data[s]` for each of the four names — rather than naming each
+ * field, so a search for what the service consumes did not see them at all.
+ * Left out, the pipe would have rejected the whole "Save Scores" request as
+ * containing unexpected properties, and no test covers this screen.
+ *
+ * One to five in halves, matching the inputs the reviewer is given. The service
+ * averages whichever are supplied into the overall score.
+ */
 export class UpdateAppraisalDto {
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  @IsOptional()
+  attendanceScore?: number;
+
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  @IsOptional()
+  performanceScore?: number;
+
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  @IsOptional()
+  teamworkScore?: number;
+
+  @IsNumber()
+  @Min(1)
+  @Max(5)
+  @IsOptional()
+  initiativeScore?: number;
+
   @IsString()
   @IsOptional()
   @MaxLength(5000)
