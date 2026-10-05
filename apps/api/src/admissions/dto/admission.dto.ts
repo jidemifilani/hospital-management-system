@@ -2,12 +2,12 @@ import {
   IsString,
   IsOptional,
   IsEnum,
-  IsBoolean,
   IsDateString,
   MaxLength,
   IsNotEmpty,
 } from "class-validator";
 import { AdmissionType, AdmissionStatus, DischargeType } from "@prisma/client";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
 
 export class AdmitPatientDto {
   @IsString()
@@ -93,7 +93,7 @@ export class DischargeDto {
   @IsOptional()
   status?: AdmissionStatus;
 
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   autoInvoice?: boolean;
 }

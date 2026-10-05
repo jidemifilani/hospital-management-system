@@ -3,7 +3,6 @@ import {
   IsOptional,
   IsNumber,
   IsEnum,
-  IsBoolean,
   IsArray,
   ArrayMinSize,
   ValidateNested,
@@ -14,6 +13,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { AccountType } from "@prisma/client";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
 
 export class CreateAccountDto {
   @IsString()
@@ -38,7 +38,7 @@ export class CreateAccountDto {
   @MaxLength(500)
   description?: string;
 
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   isPostable?: boolean;
 }

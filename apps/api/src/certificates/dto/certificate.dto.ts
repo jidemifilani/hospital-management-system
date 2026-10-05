@@ -1,6 +1,5 @@
 import { CertificateStatus, CertificateType } from "@prisma/client";
 import {
-  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
@@ -11,6 +10,7 @@ import {
   MaxLength,
   Min,
 } from "class-validator";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
 
 /**
  * Medical certificates — sick leave, fitness to work, and death certificates.
@@ -55,7 +55,7 @@ export class CreateCertificateDto {
   @IsOptional()
   daysOff?: number;
 
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   fittedForDuty?: boolean;
 

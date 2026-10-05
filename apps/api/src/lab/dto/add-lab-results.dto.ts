@@ -1,5 +1,6 @@
-import { IsString, IsOptional, IsBoolean, IsArray, ValidateNested } from "class-validator";
+import { IsString, IsOptional, IsArray, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
 
 export class LabResultItemDto {
   @IsString() testName: string;
@@ -7,8 +8,8 @@ export class LabResultItemDto {
   @IsString() result: string;
   @IsString() @IsOptional() unit?: string;
   @IsString() @IsOptional() normalRange?: string;
-  @IsBoolean() @IsOptional() isAbnormal?: boolean;
-  @IsBoolean() @IsOptional() isCritical?: boolean;
+  @IsStrictBoolean() @IsOptional() isAbnormal?: boolean;
+  @IsStrictBoolean() @IsOptional() isCritical?: boolean;
   @IsString() @IsOptional() notes?: string;
 }
 

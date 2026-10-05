@@ -2,11 +2,11 @@ import {
   IsString,
   IsOptional,
   IsEnum,
-  IsBoolean,
   MaxLength,
   IsNotEmpty,
 } from "class-validator";
 import { EncounterType, EncounterStatus } from "@prisma/client";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
 
 export class CreateEncounterDto {
   @IsString()
@@ -34,7 +34,7 @@ export class CreateEncounterDto {
   @MaxLength(1000)
   chiefComplaint?: string;
 
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   isBillable?: boolean;
 }
@@ -66,7 +66,7 @@ export class CloseEncounterDto {
   @MaxLength(500)
   disposition?: string;
 
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   autoInvoice?: boolean;
 }

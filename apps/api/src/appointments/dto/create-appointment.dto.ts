@@ -1,5 +1,6 @@
-import { IsString, IsDateString, IsEnum, IsOptional, IsBoolean, IsInt, Min } from "class-validator";
+import { IsString, IsDateString, IsEnum, IsOptional, IsInt, Min } from "class-validator";
 import { AppointmentType } from "@prisma/client";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
 
 export class CreateAppointmentDto {
   @IsString()
@@ -30,7 +31,7 @@ export class CreateAppointmentDto {
   @IsOptional()
   notes?: string;
 
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   isTelemedicine?: boolean;
 }

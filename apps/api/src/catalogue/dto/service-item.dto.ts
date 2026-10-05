@@ -3,12 +3,12 @@ import {
   IsOptional,
   IsNumber,
   IsEnum,
-  IsBoolean,
   Min,
   MaxLength,
   IsNotEmpty,
 } from "class-validator";
 import { ServiceCategory } from "@prisma/client";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
 
 export class CreateServiceItemDto {
   @IsString()
@@ -88,7 +88,7 @@ export class UpdateServiceItemDto {
   @MaxLength(500)
   description?: string;
 
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   isActive?: boolean;
 }

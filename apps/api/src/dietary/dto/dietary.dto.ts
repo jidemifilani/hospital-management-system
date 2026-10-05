@@ -1,6 +1,5 @@
 import { MealType } from "@prisma/client";
 import {
-  IsBoolean,
   IsDateString,
   IsEnum,
   IsNotEmpty,
@@ -8,6 +7,7 @@ import {
   IsString,
   MaxLength,
 } from "class-validator";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
 
 /** Diet orders and what the patient was actually served and ate. */
 export class CreateDietOrderDto {
@@ -56,7 +56,7 @@ export class RecordMealDto {
   @IsOptional()
   date?: string;
 
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   served?: boolean;
 
@@ -65,7 +65,7 @@ export class RecordMealDto {
    * strings "true" and "false", which are both truthy — so a meal recorded as
    * not eaten was stored as eaten.
    */
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   consumed?: boolean;
 

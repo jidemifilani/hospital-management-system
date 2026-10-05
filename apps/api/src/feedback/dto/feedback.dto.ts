@@ -1,6 +1,5 @@
 import { FeedbackCategory, FeedbackStatus } from "@prisma/client";
 import {
-  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -10,6 +9,7 @@ import {
   MaxLength,
   Min,
 } from "class-validator";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
 
 /**
  * Patient feedback and the hospital's reply.
@@ -42,7 +42,7 @@ export class CreateFeedbackDto {
    * Anonymous feedback still records which patient it concerns if given; what
    * changes is whether their name is shown with it.
    */
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   isAnonymous?: boolean;
 

@@ -2,11 +2,11 @@ import {
   IsString,
   IsOptional,
   IsEnum,
-  IsBoolean,
   MaxLength,
   IsNotEmpty,
 } from "class-validator";
 import { TicketCategory, TicketPriority, TicketStatus, TicketTeam } from "@prisma/client";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
 
 export class CreateTicketDto {
   @IsString()
@@ -55,7 +55,7 @@ export class TicketCommentDto {
   body: string;
 
   /** Internal notes are not shown to whoever raised the ticket. */
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   isInternal?: boolean;
 }

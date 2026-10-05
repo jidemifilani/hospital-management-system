@@ -3,7 +3,6 @@ import {
   IsOptional,
   IsInt,
   IsNumber,
-  IsBoolean,
   IsEmail,
   IsDateString,
   Min,
@@ -13,6 +12,7 @@ import {
   IsEnum,
 } from "class-validator";
 import { PayerType } from "@prisma/client";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
 
 export class CreateProviderDto {
   @IsString()
@@ -82,7 +82,7 @@ export class CreatePlanDto {
   @IsOptional()
   perVisitLimit?: number;
 
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   requiresPreAuth?: boolean;
 }
@@ -141,7 +141,7 @@ export class EnrolPatientDto {
   @IsOptional()
   endsAt?: string;
 
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   isPrincipal?: boolean;
 }

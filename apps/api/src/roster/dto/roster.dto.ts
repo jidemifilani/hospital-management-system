@@ -1,13 +1,13 @@
 import {
   IsString,
   IsOptional,
-  IsBoolean,
   IsEnum,
   IsDateString,
   Matches,
   MaxLength,
   IsNotEmpty,
 } from "class-validator";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
 
 /**
  * Was an interface, which erases at runtime — so the global pipe saw no
@@ -37,7 +37,7 @@ export class CreateRosterDto {
   @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: "endTime must be HH:mm" })
   endTime: string;
 
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   isOnCall?: boolean;
 
