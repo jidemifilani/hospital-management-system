@@ -669,7 +669,7 @@ export function HmoPage() {
                         {c.patient ? `${c.patient.firstName} ${c.patient.lastName}` : "—"}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {c.hmoProvider?.name ?? c.provider}
+                        {c.payer?.name ?? c.provider}
                       </TableCell>
                       <TableCell className="text-right text-sm">{naira(c.amount)}</TableCell>
                       <TableCell className="text-right text-sm font-medium">

@@ -419,7 +419,7 @@ export class AccountingService {
     }
 
     if (kind === "HMO" && ids.length) {
-      const providers = await this.prisma.hmoProvider.findMany({
+      const providers = await this.prisma.payer.findMany({
         where: { id: { in: ids } },
         select: { id: true, name: true, code: true },
       });

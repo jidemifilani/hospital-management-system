@@ -38,7 +38,7 @@ export class StatementsService {
     dto: { payerId: string; periodStart: string; periodEnd: string; notes?: string },
     organizationId: string,
   ) {
-    const payer = await this.prisma.hmoProvider.findFirst({
+    const payer = await this.prisma.payer.findFirst({
       where: { id: dto.payerId, organizationId },
       include: {
         contracts: {

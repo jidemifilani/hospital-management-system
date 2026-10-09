@@ -58,7 +58,7 @@ function build(opts: {
   };
 
   const prisma = {
-    hmoProvider: {
+    payer: {
       findFirst: jest.fn().mockResolvedValue(
         opts.payer === null
           ? null

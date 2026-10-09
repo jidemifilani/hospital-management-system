@@ -205,7 +205,7 @@ model Organization {
   bloodUnits      BloodUnit[]
   bloodRequests   BloodRequest[]
   insuranceClaims InsuranceClaim[]
-  hmoProviders    HmoProvider[]
+  payers          Payer[]
   documents       Document[]
   hmoPlans        HmoPlan[]
   hmoContracts    HmoContract[]
@@ -1372,7 +1372,7 @@ model PayerStatement {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  payer        HmoProvider      @relation(fields: [payerId], references: [id])
+  payer        Payer            @relation(fields: [payerId], references: [id])
   organization Organization     @relation(fields: [organizationId], references: [id])
   claims       InsuranceClaim[]
 
@@ -1389,10 +1389,7 @@ model PayerStatement {
 /// hospital money — so they share this registry rather than each getting a
 /// parallel one.
 ///
-/// Naming debt, stated plainly: the model and its table are still called
-/// "HmoProvider" / "hmo_providers" because renaming a table holding live rows
-/// is a migration of its own. The name is now narrower than what it holds.
-model HmoProvider {
+model Payer {
   id             String    @id @default(cuid())
   code           String
   name           String
@@ -1417,7 +1414,7 @@ model HmoProvider {
 
   @@unique([code, organizationId])
   @@index([organizationId, isActive])
-  @@map("hmo_providers")
+  @@map("payers")
 }
 
 /// What a given plan actually covers. The coverage share is what splits a bill
@@ -1436,7 +1433,7 @@ model HmoPlan {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  provider     HmoProvider    @relation(fields: [providerId], references: [id])
+  provider     Payer          @relation(fields: [providerId], references: [id])
   organization Organization   @relation(fields: [organizationId], references: [id])
   enrolments   HmoEnrolment[]
 
@@ -1461,7 +1458,7 @@ model HmoContract {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
-  provider     HmoProvider  @relation(fields: [providerId], references: [id])
+  provider     Payer        @relation(fields: [providerId], references: [id])
   organization Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([contractNumber, organizationId])
@@ -1486,7 +1483,7 @@ model HmoEnrolment {
   updatedAt      DateTime           @updatedAt
 
   patient      Patient          @relation(fields: [patientId], references: [id])
-  provider     HmoProvider      @relation(fields: [providerId], references: [id])
+  provider     Payer            @relation(fields: [providerId], references: [id])
   plan         HmoPlan          @relation(fields: [planId], references: [id])
   organization Organization     @relation(fields: [organizationId], references: [id])
   claims       InsuranceClaim[]
@@ -1652,7 +1649,7 @@ model InsuranceClaim {
   patient      Patient       @relation(fields: [patientId], references: [id])
   invoice      Invoice?      @relation(fields: [invoiceId], references: [id])
   organization Organization  @relation(fields: [organizationId], references: [id])
-  hmoProvider  HmoProvider?  @relation(fields: [providerId], references: [id])
+  payer        Payer?        @relation(fields: [providerId], references: [id])
   enrolment    HmoEnrolment? @relation(fields: [enrolmentId], references: [id])
   encounter    Encounter?    @relation(fields: [encounterId], references: [id])
   lines        InsuranceClaimLine[]

@@ -204,7 +204,7 @@ describe("AccountingService reversal accounting", () => {
         }),
       },
       patient: { findMany: jest.fn().mockResolvedValue([]) },
-      hmoProvider: { findMany: jest.fn().mockResolvedValue([]) },
+      payer: { findMany: jest.fn().mockResolvedValue([]) },
     } as any;
 
     const service = new AccountingService(prisma);

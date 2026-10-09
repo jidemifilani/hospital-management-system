@@ -58,12 +58,12 @@ export class HmoService {
     },
     organizationId: string,
   ) {
-    const existing = await this.prisma.hmoProvider.findFirst({
+    const existing = await this.prisma.payer.findFirst({
       where: { code: dto.code, organizationId },
     });
     if (existing) throw new BadRequestException(`Provider ${dto.code} already exists`);
 
-    return this.prisma.hmoProvider.create({ data: { ...dto, organizationId } });
+    return this.prisma.payer.create({ data: { ...dto, organizationId } });
   }
 
   listProviders(
@@ -71,7 +71,7 @@ export class HmoService {
     includeInactive = false,
     type?: "HMO" | "CORPORATE" | "NHIS",
   ) {
-    return this.prisma.hmoProvider.findMany({
+    return this.prisma.payer.findMany({
       where: {
         organizationId,
         ...(includeInactive ? {} : { isActive: true }),
@@ -97,7 +97,7 @@ export class HmoService {
     },
     organizationId: string,
   ) {
-    const provider = await this.prisma.hmoProvider.findFirst({
+    const provider = await this.prisma.payer.findFirst({
       where: { id: dto.providerId, organizationId },
     });
     if (!provider) throw new NotFoundException("Provider not found");
@@ -124,7 +124,7 @@ export class HmoService {
     },
     organizationId: string,
   ) {
-    const provider = await this.prisma.hmoProvider.findFirst({
+    const provider = await this.prisma.payer.findFirst({
       where: { id: dto.providerId, organizationId },
     });
     if (!provider) throw new NotFoundException("Provider not found");
@@ -408,7 +408,7 @@ export class HmoService {
         organizationId,
         lines: { create: lines },
       },
-      include: { lines: true, hmoProvider: true },
+      include: { lines: true, payer: true },
     });
 
     if (elig.enrolment.plan.requiresPreAuth && !preAuthCode) {
@@ -571,7 +571,7 @@ export class HmoService {
       },
       include: {
         lines: true,
-        hmoProvider: { select: { id: true, code: true, name: true } },
+        payer: { select: { id: true, code: true, name: true } },
         patient: { select: { id: true, firstName: true, lastName: true, mrn: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -585,7 +585,7 @@ export class HmoService {
    * approving 60% of claims is costing the hospital more than its tariff says.
    */
   async providerStatement(organizationId: string) {
-    const providers = await this.prisma.hmoProvider.findMany({
+    const providers = await this.prisma.payer.findMany({
       where: { organizationId },
       include: {
         claims: {
