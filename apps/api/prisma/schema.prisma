@@ -243,6 +243,8 @@ model Organization {
   consentForms         ConsentForm[]
   dischargeRecords     DischargeRecord[]
   onlineOrders         OnlineOrder[]
+  bankAccounts         BankAccount[]
+  bankStatementLines   BankStatementLine[]
 
   @@map("organizations")
 }
@@ -412,6 +414,7 @@ model Staff {
   stockMovesPerformed      StockMove[]       @relation("StockMoveBy")
   posSessions              PosSession[]      @relation("PosCashier")
   posSales                 PosSale[]         @relation("PosSoldBy")
+  reconciledBankLines      BankStatementLine[] @relation("BankLineReconciledBy")
 
   @@index([departmentId])
   @@index([organizationId])
@@ -747,9 +750,10 @@ model Payment {
   paidAt         DateTime      @default(now())
   createdAt      DateTime      @default(now())
 
-  invoice      Invoice      @relation(fields: [invoiceId], references: [id])
-  receivedBy   Staff        @relation(fields: [receivedById], references: [id])
-  organization Organization @relation(fields: [organizationId], references: [id])
+  invoice        Invoice             @relation(fields: [invoiceId], references: [id])
+  receivedBy     Staff               @relation(fields: [receivedById], references: [id])
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  statementLines BankStatementLine[]
 
   @@index([invoiceId])
   @@index([organizationId])
@@ -3302,6 +3306,7 @@ model Account {
   children     Account[]     @relation("AccountTree")
   lines        JournalLine[]
   organization Organization  @relation(fields: [organizationId], references: [id])
+  bankAccount  BankAccount?
 
   @@unique([code, organizationId])
   @@index([organizationId, type])
@@ -3820,4 +3825,58 @@ model OnlineOrderItem {
 
   @@index([orderId])
   @@map("online_order_items")
+}
+
+// ─── Bank Reconciliation ───────────────────────────────────────────────────────
+
+enum StatementLineType {
+  DEBIT
+  CREDIT
+}
+
+model BankAccount {
+  id             String   @id @default(cuid())
+  name           String
+  bankName       String
+  accountNumber  String
+  currency       String   @default("NGN")
+  glAccountId    String   @unique
+  isActive       Boolean  @default(true)
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  glAccount      Account             @relation(fields: [glAccountId], references: [id])
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  statementLines BankStatementLine[]
+
+  @@index([organizationId])
+  @@map("bank_accounts")
+}
+
+model BankStatementLine {
+  id               String            @id @default(cuid())
+  bankAccountId    String
+  valueDate        DateTime
+  description      String
+  reference        String?
+  amount           Decimal           @db.Decimal(14, 2)
+  lineType         StatementLineType
+  isReconciled     Boolean           @default(false)
+  matchedPaymentId String?
+  matchedEntryId   String?
+  reconciledById   String?
+  reconciledAt     DateTime?
+  organizationId   String
+  createdAt        DateTime          @default(now())
+
+  bankAccount    BankAccount  @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  matchedPayment Payment?     @relation(fields: [matchedPaymentId], references: [id])
+  reconciledBy   Staff?       @relation("BankLineReconciledBy", fields: [reconciledById], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([bankAccountId, isReconciled])
+  @@index([bankAccountId, valueDate])
+  @@index([organizationId])
+  @@map("bank_statement_lines")
 }

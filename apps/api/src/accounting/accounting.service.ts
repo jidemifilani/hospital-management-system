@@ -575,4 +575,182 @@ export class AccountingService {
       })
       .filter((r) => r.balance !== "0");
   }
+
+  // ── Bank Reconciliation ────────────────────────────────────────────────────
+
+  async listBankAccounts(organizationId: string) {
+    return this.prisma.bankAccount.findMany({
+      where: { organizationId, isActive: true },
+      include: { glAccount: { select: { code: true, name: true } } },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  async createBankAccount(
+    dto: { name: string; bankName: string; accountNumber: string; glAccountId: string; currency?: string },
+    organizationId: string,
+  ) {
+    return this.prisma.bankAccount.create({
+      data: { ...dto, organizationId },
+      include: { glAccount: { select: { code: true, name: true } } },
+    });
+  }
+
+  async importStatementLines(
+    bankAccountId: string,
+    organizationId: string,
+    lines: { valueDate: string; description: string; reference?: string; amount: number; lineType: "DEBIT" | "CREDIT" }[],
+  ) {
+    const account = await this.prisma.bankAccount.findFirst({ where: { id: bankAccountId, organizationId } });
+    if (!account) throw new NotFoundException("Bank account not found");
+
+    const created = await this.prisma.bankStatementLine.createMany({
+      data: lines.map((l) => ({
+        bankAccountId,
+        organizationId,
+        valueDate: new Date(l.valueDate),
+        description: l.description,
+        reference: l.reference,
+        amount: new Decimal(l.amount),
+        lineType: l.lineType,
+      })),
+    });
+    return { imported: created.count };
+  }
+
+  async getStatementLines(
+    bankAccountId: string,
+    organizationId: string,
+    opts: { reconciled?: boolean; from?: Date; to?: Date; limit?: number },
+  ) {
+    const { reconciled, from, to, limit = 200 } = opts;
+    return this.prisma.bankStatementLine.findMany({
+      where: {
+        bankAccountId,
+        organizationId,
+        ...(reconciled !== undefined ? { isReconciled: reconciled } : {}),
+        ...(from || to ? { valueDate: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
+      },
+      include: {
+        matchedPayment: {
+          include: { invoice: { select: { invoiceNumber: true } } },
+        },
+      },
+      orderBy: { valueDate: "desc" },
+      take: limit,
+    });
+  }
+
+  async autoMatch(bankAccountId: string, organizationId: string) {
+    const account = await this.prisma.bankAccount.findFirst({ where: { id: bankAccountId, organizationId } });
+    if (!account) throw new NotFoundException("Bank account not found");
+
+    const unmatched = await this.prisma.bankStatementLine.findMany({
+      where: { bankAccountId, organizationId, isReconciled: false },
+      orderBy: { valueDate: "asc" },
+    });
+
+    const suggestions: { lineId: string; paymentId: string; confidence: "HIGH" | "LOW" }[] = [];
+
+    for (const line of unmatched) {
+      // Only CREDIT lines can match incoming payments
+      if (line.lineType !== "CREDIT") continue;
+
+      const candidates = await this.prisma.payment.findMany({
+        where: {
+          organizationId,
+          amount: line.amount,
+          statementLines: { none: {} },
+          paidAt: {
+            gte: new Date(line.valueDate.getTime() - 3 * 86_400_000),
+            lte: new Date(line.valueDate.getTime() + 3 * 86_400_000),
+          },
+        },
+        take: 3,
+      });
+
+      for (const p of candidates) {
+        const daysDiff = Math.abs(p.paidAt.getTime() - line.valueDate.getTime()) / 86_400_000;
+        const refMatch = line.reference && p.reference &&
+          (line.reference.includes(p.reference) || p.reference.includes(line.reference));
+        suggestions.push({
+          lineId: line.id,
+          paymentId: p.id,
+          confidence: (daysDiff <= 1 || refMatch) ? "HIGH" : "LOW",
+        });
+      }
+    }
+
+    return suggestions;
+  }
+
+  async matchLine(
+    lineId: string,
+    organizationId: string,
+    staffId: string | undefined,
+    dto: { matchedPaymentId?: string; matchedEntryId?: string },
+  ) {
+    const line = await this.prisma.bankStatementLine.findFirst({ where: { id: lineId, organizationId } });
+    if (!line) throw new NotFoundException("Statement line not found");
+    if (line.isReconciled) throw new BadRequestException("Line is already reconciled");
+
+    return this.prisma.bankStatementLine.update({
+      where: { id: lineId },
+      data: {
+        matchedPaymentId: dto.matchedPaymentId ?? null,
+        matchedEntryId: dto.matchedEntryId ?? null,
+        isReconciled: true,
+        reconciledById: staffId ?? null,
+        reconciledAt: new Date(),
+      },
+    });
+  }
+
+  async unmatchLine(lineId: string, organizationId: string) {
+    const line = await this.prisma.bankStatementLine.findFirst({ where: { id: lineId, organizationId } });
+    if (!line) throw new NotFoundException("Statement line not found");
+
+    return this.prisma.bankStatementLine.update({
+      where: { id: lineId },
+      data: {
+        matchedPaymentId: null,
+        matchedEntryId: null,
+        isReconciled: false,
+        reconciledById: null,
+        reconciledAt: null,
+      },
+    });
+  }
+
+  async reconciliationReport(bankAccountId: string, organizationId: string, asOf: Date) {
+    const account = await this.prisma.bankAccount.findFirst({
+      where: { id: bankAccountId, organizationId },
+      include: { glAccount: { select: { code: true, name: true } } },
+    });
+    if (!account) throw new NotFoundException("Bank account not found");
+
+    const lines = await this.prisma.bankStatementLine.findMany({
+      where: { bankAccountId, valueDate: { lte: asOf } },
+      orderBy: { valueDate: "asc" },
+    });
+
+    let statementBalance = new Decimal(0);
+    for (const l of lines) {
+      if (l.lineType === "CREDIT") statementBalance = statementBalance.add(l.amount);
+      else statementBalance = statementBalance.sub(l.amount);
+    }
+
+    const unreconciledCredits = lines.filter((l) => !l.isReconciled && l.lineType === "CREDIT");
+    const unreconciledDebits  = lines.filter((l) => !l.isReconciled && l.lineType === "DEBIT");
+
+    return {
+      bankAccount: { id: account.id, name: account.name, glAccount: account.glAccount },
+      asOf: asOf.toISOString().split("T")[0],
+      statementBalance: statementBalance.toString(),
+      unreconciledCreditCount: unreconciledCredits.length,
+      unreconciledDebitCount:  unreconciledDebits.length,
+      unreconciledCreditTotal: unreconciledCredits.reduce((s, l) => s.add(l.amount), new Decimal(0)).toString(),
+      unreconciledDebitTotal:  unreconciledDebits.reduce((s, l) => s.add(l.amount), new Decimal(0)).toString(),
+    };
+  }
 }

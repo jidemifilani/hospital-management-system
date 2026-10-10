@@ -96,3 +96,34 @@ export class PostJournalEntryDto {
   @MaxLength(80)
   reference?: string;
 }
+
+// ── Bank Reconciliation DTOs ──────────────────────────────────────────────────
+
+export class CreateBankAccountDto {
+  @IsString() @IsNotEmpty() @MaxLength(120) name: string;
+  @IsString() @IsNotEmpty() @MaxLength(80)  bankName: string;
+  @IsString() @IsNotEmpty() @MaxLength(40)  accountNumber: string;
+  @IsString() @IsNotEmpty()                 glAccountId: string;
+  @IsString() @IsOptional()                 currency?: string;
+}
+
+export class StatementLineDto {
+  @IsDateString()           valueDate: string;
+  @IsString() @IsNotEmpty() @MaxLength(240) description: string;
+  @IsString() @IsOptional() @MaxLength(80)  reference?: string;
+  @IsNumber() @Min(0)                       amount: number;
+  @IsEnum({ DEBIT: "DEBIT", CREDIT: "CREDIT" }) lineType: "DEBIT" | "CREDIT";
+}
+
+export class ImportStatementDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => StatementLineDto)
+  lines: StatementLineDto[];
+}
+
+export class MatchLineDto {
+  @IsString() @IsOptional() matchedPaymentId?: string;
+  @IsString() @IsOptional() matchedEntryId?: string;
+}

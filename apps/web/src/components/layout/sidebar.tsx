@@ -59,6 +59,7 @@ import {
   FolderOpen,
   BookOpen,
   ListTodo,
+  Landmark,
 } from "lucide-react";
 
 const navItems = [
@@ -92,7 +93,8 @@ const navItems = [
   { href: "/inventory",    icon: PackageSearch,   label: "Inventory",    group: "admin", permission: PERMISSIONS.INVENTORY_READ },
   { href: "/production",   icon: Factory,         label: "Production",   group: "admin", permission: PERMISSIONS.INVENTORY_READ },
   { href: "/documents",    icon: FolderOpen,      label: "Documents",    group: "admin", permission: PERMISSIONS.DOCUMENTS_READ },
-  { href: "/accounting",   icon: BookOpen,        label: "Accounting",   group: "admin", permission: PERMISSIONS.ACCOUNTING_READ },
+  { href: "/accounting",             icon: BookOpen,   label: "Accounting",         group: "admin", permission: PERMISSIONS.ACCOUNTING_READ },
+  { href: "/accounting/reconciliation", icon: Landmark, label: "Bank Reconciliation", group: "admin", permission: PERMISSIONS.ACCOUNTING_READ },
   { href: "/procurement",  icon: ShoppingCart,    label: "Procurement",  group: "admin", permission: PERMISSIONS.PROCUREMENT_READ },
   { href: "/assets",       icon: Boxes,           label: "Assets",       group: "admin", permission: PERMISSIONS.ASSETS_READ },
   { href: "/payroll",      icon: Wallet,          label: "Payroll",      group: "admin", permission: PERMISSIONS.PAYROLL_READ },

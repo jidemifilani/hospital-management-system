@@ -1,6 +1,9 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from "@nestjs/common";
 import { AccountingService } from "./accounting.service";
-import { CreateAccountDto, PostJournalEntryDto } from "./dto/accounting.dto";
+import {
+  CreateAccountDto, PostJournalEntryDto,
+  CreateBankAccountDto, ImportStatementDto, MatchLineDto,
+} from "./dto/accounting.dto";
 import { ChartSeeder } from "./chart.seeder";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
@@ -120,5 +123,77 @@ export class AccountingController {
     const which = normalised === "AP" ? "AP" : normalised === "HMO" ? "HMO" : "AR";
 
     return this.accounting.aging(user.organizationId!, which, parseDate(asOf, new Date()));
+  }
+
+  // ── Bank Reconciliation ────────────────────────────────────────────────────
+
+  @Get("bank-accounts")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_READ)
+  listBankAccounts(@CurrentUser() user: JwtPayload) {
+    return this.accounting.listBankAccounts(user.organizationId!);
+  }
+
+  @Post("bank-accounts")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_MANAGE)
+  createBankAccount(@Body() body: CreateBankAccountDto, @CurrentUser() user: JwtPayload) {
+    return this.accounting.createBankAccount(body, user.organizationId!);
+  }
+
+  @Post("bank-accounts/:id/statement-lines")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_MANAGE)
+  importStatementLines(
+    @Param("id") id: string,
+    @Body() body: ImportStatementDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.accounting.importStatementLines(id, user.organizationId!, body.lines);
+  }
+
+  @Get("bank-accounts/:id/statement-lines")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_READ)
+  getStatementLines(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload,
+    @Query("reconciled") reconciled?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+  ) {
+    return this.accounting.getStatementLines(id, user.organizationId!, {
+      reconciled: reconciled === undefined ? undefined : reconciled === "true",
+      from: from ? new Date(from) : undefined,
+      to: to ? new Date(to) : undefined,
+    });
+  }
+
+  @Post("bank-accounts/:id/auto-match")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_MANAGE)
+  autoMatch(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    return this.accounting.autoMatch(id, user.organizationId!);
+  }
+
+  @Patch("statement-lines/:id/match")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_MANAGE)
+  matchLine(
+    @Param("id") id: string,
+    @Body() body: MatchLineDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.accounting.matchLine(id, user.organizationId!, user.staffId ?? undefined, body);
+  }
+
+  @Patch("statement-lines/:id/unmatch")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_MANAGE)
+  unmatchLine(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    return this.accounting.unmatchLine(id, user.organizationId!);
+  }
+
+  @Get("bank-accounts/:id/reconciliation-report")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_READ)
+  reconciliationReport(
+    @Param("id") id: string,
+    @CurrentUser() user: JwtPayload,
+    @Query("asOf") asOf?: string,
+  ) {
+    return this.accounting.reconciliationReport(id, user.organizationId!, parseDate(asOf, new Date()));
   }
 }
