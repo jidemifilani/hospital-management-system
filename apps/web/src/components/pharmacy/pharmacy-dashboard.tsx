@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Search, Pill, AlertTriangle, CheckCircle2, Loader2, MoreHorizontal, Package } from "lucide-react";
+import { Search, Pill, AlertTriangle, CheckCircle2, Loader2, MoreHorizontal, Package, ShieldAlert } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { apiErrorMessage } from "@/lib/api-error";
 import { NewPrescriptionDialog } from "./new-prescription-dialog";
@@ -44,6 +44,15 @@ interface DrugAlert {
   id: string; name: string; code: string; totalStock: number; reorderLevel: number; unit: string;
 }
 
+interface ExpiringBatch {
+  id: string;
+  batchNumber: string;
+  quantity: number;
+  expiresAt: string;
+  item: { code: string; name: string; unit: string };
+  location: { name: string };
+}
+
 const STATUS_COLOR: Record<string, string> = {
   PENDING:             "bg-amber-100 text-amber-700",
   DISPENSING:          "bg-blue-100 text-blue-700",
@@ -67,6 +76,12 @@ export function PharmacyDashboard() {
   const { data: lowStock = [] } = useQuery<DrugAlert[]>({
     queryKey: ["low-stock"],
     queryFn: () => api.get("/pharmacy/drugs/low-stock").then((r) => r.data),
+  });
+
+  const { data: expiringBatches = [] } = useQuery<ExpiringBatch[]>({
+    queryKey: ["expiring-batches"],
+    queryFn: () => api.get("/inventory/expiring-batches", { params: { days: 90 } }).then((r) => r.data),
+    staleTime: 60_000,
   });
 
   const loadDetail = async (id: string) => {
@@ -119,6 +134,15 @@ export function PharmacyDashboard() {
           <TabsTrigger value="prescriptions">Pending Prescriptions</TabsTrigger>
           <TabsTrigger value="catalogue"><Package className="mr-1 h-3.5 w-3.5 inline" />Drug Catalogue</TabsTrigger>
           <TabsTrigger value="inventory">Low Stock</TabsTrigger>
+          <TabsTrigger value="expiry" className="relative">
+            <ShieldAlert className="mr-1 h-3.5 w-3.5 inline" />
+            Expiry Alerts
+            {expiringBatches.length > 0 && (
+              <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {expiringBatches.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="prescriptions" className="mt-4 space-y-4">
@@ -205,6 +229,62 @@ export function PharmacyDashboard() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="expiry" className="mt-4">
+          {expiringBatches.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              No batches expiring within the next 90 days.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Drug</TableHead>
+                  <TableHead>Batch #</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead>Expires</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {expiringBatches.map((b) => {
+                  const now = new Date();
+                  const exp = new Date(b.expiresAt);
+                  const expired = exp < now;
+                  const daysLeft = Math.ceil((exp.getTime() - now.getTime()) / 86_400_000);
+                  return (
+                    <TableRow key={b.id} className={expired ? "bg-red-50" : ""}>
+                      <TableCell>
+                        <p className="text-sm font-medium">{b.item.name}</p>
+                        <p className="text-xs text-muted-foreground">{b.item.code}</p>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{b.batchNumber}</TableCell>
+                      <TableCell className="text-sm">{b.location.name}</TableCell>
+                      <TableCell className="text-right text-sm tabular-nums">
+                        {b.quantity} {b.item.unit}
+                      </TableCell>
+                      <TableCell className="text-sm tabular-nums">
+                        {exp.toISOString().slice(0, 10)}
+                      </TableCell>
+                      <TableCell>
+                        {expired ? (
+                          <Badge className="bg-red-100 text-red-800 text-xs">EXPIRED</Badge>
+                        ) : daysLeft <= 7 ? (
+                          <Badge className="bg-red-100 text-red-700 text-xs">{daysLeft}d left</Badge>
+                        ) : daysLeft <= 30 ? (
+                          <Badge className="bg-orange-100 text-orange-700 text-xs">{daysLeft}d left</Badge>
+                        ) : (
+                          <Badge className="bg-yellow-100 text-yellow-700 text-xs">{daysLeft}d left</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </TabsContent>
       </Tabs>
 

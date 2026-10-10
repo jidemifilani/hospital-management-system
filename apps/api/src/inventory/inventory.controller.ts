@@ -92,6 +92,16 @@ export class InventoryController {
     return this.inventory.lowStock(user.organizationId!);
   }
 
+  /** Batches with quantity > 0 expiring within `days` days (default 60). */
+  @Get("expiring-batches")
+  @RequirePermissions(PERMISSIONS.INVENTORY_READ)
+  expiringBatches(
+    @CurrentUser() user: JwtPayload,
+    @Query("days") days?: string,
+  ) {
+    return this.inventory.expiringBatches(user.organizationId!, days ? Number(days) : undefined);
+  }
+
   /** Stock value against the ledger's inventory account. */
   @Get("reconcile")
   @RequirePermissions(PERMISSIONS.INVENTORY_READ)
