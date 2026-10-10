@@ -249,6 +249,72 @@ export class BillingService {
     return { received: true };
   }
 
+  /**
+   * Every invoice with a past due-date that still has an outstanding balance,
+   * ranked by age. Returns up to 500 rows; the billing team works from oldest
+   * first, so the sort matters.
+   *
+   * Invoices with no dueDate set are omitted: the hospital can't chase a debt
+   * without a date from which the patient was in breach.
+   */
+  async debtWorklist(organizationId: string, asOf = new Date()) {
+    const invoices = await this.prisma.invoice.findMany({
+      where: {
+        organizationId,
+        deletedAt: null,
+        status: { in: ["ISSUED", "PARTIALLY_PAID"] },
+        dueDate: { lt: asOf },
+      },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        total: true,
+        amountPaid: true,
+        dueDate: true,
+        createdAt: true,
+        patient: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            mrn: true,
+            phone: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { dueDate: "asc" },
+      take: 500,
+    });
+
+    return invoices.map((inv) => {
+      const outstanding = new Decimal(inv.total).sub(new Decimal(inv.amountPaid));
+      const daysOverdue = Math.floor(
+        (asOf.getTime() - inv.dueDate!.getTime()) / 86_400_000,
+      );
+      return {
+        invoiceId: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        patientId: inv.patient.id,
+        patientName: `${inv.patient.firstName} ${inv.patient.lastName}`,
+        mrn: inv.patient.mrn,
+        phone: inv.patient.phone,
+        email: inv.patient.email,
+        outstanding: outstanding.toString(),
+        dueDate: inv.dueDate!.toISOString().split("T")[0],
+        daysOverdue,
+        bucket:
+          daysOverdue <= 30
+            ? "current"
+            : daysOverdue <= 60
+              ? "d31_60"
+              : daysOverdue <= 90
+                ? "d61_90"
+                : "d90_plus",
+      };
+    });
+  }
+
   async getDailySummary(organizationId: string, date?: string) {
     const d = date ? new Date(date) : new Date();
     const start = new Date(d); start.setHours(0, 0, 0, 0);

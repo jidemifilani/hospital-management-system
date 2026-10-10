@@ -58,6 +58,7 @@ import {
   PhoneCall,
   FolderOpen,
   BookOpen,
+  ListTodo,
 } from "lucide-react";
 
 const navItems = [
@@ -73,7 +74,8 @@ const navItems = [
   { href: "/lab",          icon: FlaskConical,    label: "Laboratory",   group: "clinical", permission: PERMISSIONS.LAB_READ },
   { href: "/radiology",    icon: ScanLine,        label: "Radiology",    group: "clinical", permission: PERMISSIONS.RADIOLOGY_READ },
   { href: "/pharmacy",     icon: Pill,            label: "Pharmacy",     group: "clinical", permission: PERMISSIONS.PHARMACY_READ },
-  { href: "/billing",      icon: CreditCard,      label: "Billing",      group: "clinical", permission: PERMISSIONS.BILLING_READ },
+  { href: "/billing",            icon: CreditCard, label: "Billing",       group: "clinical", permission: PERMISSIONS.BILLING_READ },
+  { href: "/billing/debt-worklist", icon: ListTodo,  label: "Debt Worklist", group: "clinical", permission: PERMISSIONS.BILLING_READ },
   { href: "/pos",          icon: ShoppingCart,    label: "Point of Sale", group: "clinical", permission: PERMISSIONS.POS_READ },
   { href: "/roster",       icon: CalendarRange,   label: "Roster",       group: "clinical", permission: PERMISSIONS.ROSTER_READ },
   { href: "/leave",        icon: CalendarOff,     label: "Leave",        group: "clinical", permission: PERMISSIONS.LEAVE_READ },

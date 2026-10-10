@@ -52,6 +52,12 @@ export class BillingController {
     return this.billing.getDailySummary(user.organizationId!, date);
   }
 
+  @Get("debt-worklist")
+  @RequirePermissions(PERMISSIONS.BILLING_READ)
+  debtWorklist(@CurrentUser() user: JwtPayload) {
+    return this.billing.debtWorklist(user.organizationId!);
+  }
+
   @Get("invoices/:id")
   @RequirePermissions(PERMISSIONS.BILLING_READ)
   findOne(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
