@@ -242,6 +242,7 @@ model Organization {
   wardRounds           WardRound[]
   consentForms         ConsentForm[]
   dischargeRecords     DischargeRecord[]
+  onlineOrders         OnlineOrder[]
 
   @@map("organizations")
 }
@@ -486,6 +487,7 @@ model Patient {
   admissions           Admission[]
   charges              Charge[]
   posSales             PosSale[]
+  onlineOrders         OnlineOrder[]
 
   @@index([mrn])
   @@index([phone])
@@ -710,6 +712,7 @@ model Invoice {
   charges         Charge[]
   payments        Payment[]
   insuranceClaims InsuranceClaim[]
+  onlineOrder     OnlineOrder?
 
   @@index([patientId])
   @@index([organizationId])
@@ -3590,7 +3593,8 @@ model InventoryItem {
   posSaleLines PosSaleLine[]
   bomOutputs   BillOfMaterials[]       @relation("BomOutput")
   bomInputs    BomLine[]               @relation("BomInput")
-  productionIn ProductionConsumption[] @relation("ProductionInput")
+  productionIn     ProductionConsumption[] @relation("ProductionInput")
+  onlineOrderItems OnlineOrderItem[]
 
   @@unique([code, organizationId])
   @@index([organizationId, category])
@@ -3768,4 +3772,52 @@ model PosSaleLine {
 
   @@index([saleId])
   @@map("pos_sale_lines")
+}
+
+// ─── Online Shop ───────────────────────────────────────────────────────────────
+
+enum OnlineOrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PROCESSING
+  FULFILLED
+  CANCELLED
+}
+
+model OnlineOrder {
+  id             String            @id @default(cuid())
+  orderNumber    String            @unique
+  patientId      String
+  invoiceId      String            @unique
+  status         OnlineOrderStatus @default(PENDING_PAYMENT)
+  deliveryMethod String            @default("PICKUP")
+  deliveryAddress String?
+  notes          String?
+  organizationId String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  patient      Patient           @relation(fields: [patientId], references: [id])
+  invoice      Invoice           @relation(fields: [invoiceId], references: [id])
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  items        OnlineOrderItem[]
+
+  @@index([organizationId, status])
+  @@index([patientId])
+  @@map("online_orders")
+}
+
+model OnlineOrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  itemId    String
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  total     Decimal @db.Decimal(10, 2)
+
+  order OnlineOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  item  InventoryItem @relation(fields: [itemId], references: [id])
+
+  @@index([orderId])
+  @@map("online_order_items")
 }

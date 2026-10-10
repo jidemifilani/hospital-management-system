@@ -67,6 +67,7 @@ import { ClinicalSafetyModule } from "./clinical-safety/clinical-safety.module";
 import { AccountingModule } from "./accounting/accounting.module";
 import { InventoryModule } from "./inventory/inventory.module";
 import { PosModule } from "./pos/pos.module";
+import { ShopModule } from "./shop/shop.module";
 import { APP_INTERCEPTOR, APP_GUARD } from "@nestjs/core";
 import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 import { GlobalThrottlerGuard } from "./common/guards/global-throttler.guard";
@@ -165,6 +166,7 @@ import { GlobalThrottlerGuard } from "./common/guards/global-throttler.guard";
     AccountingModule,
     InventoryModule,
     PosModule,
+    ShopModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },

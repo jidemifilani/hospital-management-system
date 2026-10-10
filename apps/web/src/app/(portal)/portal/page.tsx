@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   CalendarCheck, FlaskConical, Pill, CreditCard,
-  User, Heart, AlertTriangle, ChevronRight,
+  User, Heart, AlertTriangle, ChevronRight, ShoppingBag, Package,
 } from "lucide-react";
 import Link from "next/link";
 import { portalApi, getPortalPatient } from "@/lib/portal-api";
@@ -18,6 +18,8 @@ const NAV = [
   { href: "/portal/results",      icon: FlaskConical,  label: "Lab Results",      color: "bg-violet-500" },
   { href: "/portal/prescriptions",icon: Pill,          label: "Prescriptions",    color: "bg-green-500" },
   { href: "/portal/bills",        icon: CreditCard,    label: "Bills & Payments", color: "bg-amber-500" },
+  { href: "/portal/shop",         icon: ShoppingBag,   label: "Online Pharmacy",  color: "bg-teal-500" },
+  { href: "/portal/orders",       icon: Package,       label: "My Orders",        color: "bg-orange-500" },
 ];
 
 export default function PortalHomePage() {
@@ -54,7 +56,7 @@ export default function PortalHomePage() {
       </div>
 
       {/* Quick nav */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {NAV.map(({ href, icon: Icon, label, color }) => (
           <Link key={href} href={href}>
             <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
