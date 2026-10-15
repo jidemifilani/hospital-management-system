@@ -2,6 +2,7 @@ import { PayComponentType, PayrollStatus } from "@prisma/client";
 import { Type } from "class-transformer";
 import {
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -66,6 +67,16 @@ export class CreatePayrollDto {
   @Type(() => PayComponentDto)
   components?: PayComponentDto[];
 
+  /** When true the service auto-computes and injects PAYE, pension, NHF lines */
+  @IsBoolean()
+  @IsOptional()
+  autoComputeStatutory?: boolean;
+
+  /** Set false to skip NHF when autoComputeStatutory is true. Default: true */
+  @IsBoolean()
+  @IsOptional()
+  applyNhf?: boolean;
+
   @IsString()
   @IsOptional()
   @MaxLength(2000)
@@ -80,4 +91,32 @@ export class UpdatePayrollStatusDto {
   @IsOptional()
   @MaxLength(2000)
   notes?: string;
+}
+
+export class ComputeTaxDto {
+  @IsNumber() @Min(0) basicSalary: number;
+  @IsNumber() @Min(0) @IsOptional() housingAllowance?: number;
+  @IsNumber() @Min(0) @IsOptional() transportAllowance?: number;
+  @IsNumber() @Min(0) @IsOptional() medicalAllowance?: number;
+  @IsNumber() @Min(0) @IsOptional() otherAllowances?: number;
+  @IsBoolean() @IsOptional() applyNhf?: boolean;
+}
+
+export class CreateSalaryGradeDto {
+  @IsString() @IsNotEmpty() @MaxLength(120) name: string;
+  @IsNumber() @Min(0) basicSalary: number;
+  @IsNumber() @Min(0) @IsOptional() housingAllowance?: number;
+  @IsNumber() @Min(0) @IsOptional() transportAllowance?: number;
+  @IsNumber() @Min(0) @IsOptional() medicalAllowance?: number;
+  @IsNumber() @Min(0) @IsOptional() otherAllowances?: number;
+}
+
+export class UpdateSalaryGradeDto {
+  @IsString() @IsNotEmpty() @MaxLength(120) @IsOptional() name?: string;
+  @IsNumber() @Min(0) @IsOptional() basicSalary?: number;
+  @IsNumber() @Min(0) @IsOptional() housingAllowance?: number;
+  @IsNumber() @Min(0) @IsOptional() transportAllowance?: number;
+  @IsNumber() @Min(0) @IsOptional() medicalAllowance?: number;
+  @IsNumber() @Min(0) @IsOptional() otherAllowances?: number;
+  @IsBoolean() @IsOptional() isActive?: boolean;
 }

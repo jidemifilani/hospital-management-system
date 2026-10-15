@@ -245,6 +245,7 @@ model Organization {
   onlineOrders         OnlineOrder[]
   bankAccounts         BankAccount[]
   bankStatementLines   BankStatementLine[]
+  salaryGrades         SalaryGrade[]
 
   @@map("organizations")
 }
@@ -2038,6 +2039,7 @@ enum PayComponentType {
   BONUS
   PENSION_DEDUCTION
   TAX_DEDUCTION
+  NHF_DEDUCTION
   LOAN_DEDUCTION
   OTHER_ALLOWANCE
   OTHER_DEDUCTION
@@ -2054,6 +2056,11 @@ model Payroll {
   grossPay        Decimal       @db.Decimal(12, 2)
   totalDeductions Decimal       @db.Decimal(12, 2)
   netPay          Decimal       @db.Decimal(12, 2)
+  // Statutory deductions (computed by tax engine)
+  payeTax         Decimal       @default(0) @db.Decimal(12, 2)
+  pensionEmployee Decimal       @default(0) @db.Decimal(12, 2)
+  pensionEmployer Decimal       @default(0) @db.Decimal(12, 2)
+  nhf             Decimal       @default(0) @db.Decimal(12, 2)
   status          PayrollStatus @default(DRAFT)
   paidAt          DateTime?
   paymentMethod   String?
@@ -3879,4 +3886,25 @@ model BankStatementLine {
   @@index([bankAccountId, valueDate])
   @@index([organizationId])
   @@map("bank_statement_lines")
+}
+
+// ─── Salary Grades ────────────────────────────────────────────────────────────
+
+model SalaryGrade {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  name               String
+  basicSalary        Decimal  @default(0) @db.Decimal(12, 2)
+  housingAllowance   Decimal  @default(0) @db.Decimal(12, 2)
+  transportAllowance Decimal  @default(0) @db.Decimal(12, 2)
+  medicalAllowance   Decimal  @default(0) @db.Decimal(12, 2)
+  otherAllowances    Decimal  @default(0) @db.Decimal(12, 2)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("salary_grades")
 }

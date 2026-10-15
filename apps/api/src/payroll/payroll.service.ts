@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException }
 import { PrismaService } from "../prisma/prisma.service";
 import { customAlphabet } from "nanoid";
 import { Decimal } from "@prisma/client/runtime/library";
+import { computeNigerianTax, TaxInput } from "./tax.engine";
 
 const genId = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8);
 
@@ -15,7 +16,28 @@ export class PayrollService {
     });
     if (existing) throw new ConflictException("Payroll already exists for this staff, month, and year");
 
-    const components = data.components ?? [];
+    const components: any[] = data.components ?? [];
+
+    // Auto-compute statutory deductions if requested
+    if (data.autoComputeStatutory) {
+      const taxInput = this._buildTaxInput(components);
+      const tax = computeNigerianTax({ ...taxInput, applyNhf: data.applyNhf !== false });
+
+      // Replace any existing PAYE / pension / NHF lines with computed values
+      const filtered = components.filter(
+        (c) => !["TAX_DEDUCTION", "PENSION_DEDUCTION", "NHF_DEDUCTION"].includes(c.type),
+      );
+      if (tax.pensionEmployee > 0)
+        filtered.push({ type: "PENSION_DEDUCTION", label: "Pension (Employee 8%)", amount: tax.pensionEmployee, isDeduction: true });
+      if (tax.nhf > 0)
+        filtered.push({ type: "NHF_DEDUCTION", label: "NHF (2.5%)", amount: tax.nhf, isDeduction: true });
+      if (tax.payeTax > 0)
+        filtered.push({ type: "TAX_DEDUCTION", label: "PAYE Tax", amount: tax.payeTax, isDeduction: true });
+
+      components.splice(0, components.length, ...filtered);
+      data._tax = tax;
+    }
+
     let grossPay = new Decimal(0);
     let totalDeductions = new Decimal(0);
 
@@ -25,6 +47,7 @@ export class PayrollService {
       else grossPay = grossPay.add(amt);
     }
     const netPay = grossPay.sub(totalDeductions);
+    const tax = data._tax;
 
     return this.prisma.payroll.create({
       data: {
@@ -37,6 +60,10 @@ export class PayrollService {
         grossPay,
         totalDeductions,
         netPay,
+        payeTax:         new Decimal(tax?.payeTax         ?? 0),
+        pensionEmployee: new Decimal(tax?.pensionEmployee ?? 0),
+        pensionEmployer: new Decimal(tax?.pensionEmployer ?? 0),
+        nhf:             new Decimal(tax?.nhf             ?? 0),
         notes: data.notes,
         components: {
           create: components.map((c: any) => ({
@@ -49,6 +76,22 @@ export class PayrollService {
       },
       include: { components: true, staff: { select: { firstName: true, lastName: true, employeeId: true, department: { select: { name: true } } } } },
     });
+  }
+
+  /** Extract allowance amounts from a component list for the tax engine. */
+  private _buildTaxInput(components: any[]): TaxInput {
+    const get = (type: string) =>
+      components.filter((c) => c.type === type && !c.isDeduction).reduce((s, c) => s + Number(c.amount ?? 0), 0);
+
+    const basic     = get("BASIC_SALARY");
+    const housing   = get("HOUSING_ALLOWANCE");
+    const transport = get("TRANSPORT_ALLOWANCE");
+    const medical   = get("MEDICAL_ALLOWANCE");
+    const other     = components
+      .filter((c) => !c.isDeduction && !["BASIC_SALARY","HOUSING_ALLOWANCE","TRANSPORT_ALLOWANCE","MEDICAL_ALLOWANCE"].includes(c.type))
+      .reduce((s, c) => s + Number(c.amount ?? 0), 0);
+
+    return { basicSalary: basic, housingAllowance: housing, transportAllowance: transport, medicalAllowance: medical, otherAllowances: other };
   }
 
   async findAll(organizationId: string, filters: { month?: number; year?: number; staffId?: string; status?: string }) {
@@ -124,5 +167,74 @@ export class PayrollService {
     const totalGross = allPayrolls.reduce((s, p) => s + Number(p.grossPay), 0);
 
     return { draft, approved, paid, cancelled, totalNetPaid, totalGross, month: where.month, year: where.year };
+  }
+
+  // ── Tax computation ──────────────────────────────────────────────────────────
+
+  computeTax(input: TaxInput & { applyNhf?: boolean }) {
+    return computeNigerianTax(input);
+  }
+
+  // ── Salary grades ────────────────────────────────────────────────────────────
+
+  listSalaryGrades(organizationId: string) {
+    return this.prisma.salaryGrade.findMany({
+      where: { organizationId },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  createSalaryGrade(data: any, organizationId: string) {
+    return this.prisma.salaryGrade.create({
+      data: {
+        organizationId,
+        name:               data.name,
+        basicSalary:        new Decimal(data.basicSalary        ?? 0),
+        housingAllowance:   new Decimal(data.housingAllowance   ?? 0),
+        transportAllowance: new Decimal(data.transportAllowance ?? 0),
+        medicalAllowance:   new Decimal(data.medicalAllowance   ?? 0),
+        otherAllowances:    new Decimal(data.otherAllowances    ?? 0),
+      },
+    });
+  }
+
+  async updateSalaryGrade(id: string, data: any, organizationId: string) {
+    const existing = await this.prisma.salaryGrade.findFirst({ where: { id, organizationId } });
+    if (!existing) throw new NotFoundException("Salary grade not found");
+    return this.prisma.salaryGrade.update({
+      where: { id },
+      data: {
+        name:               data.name               ?? existing.name,
+        basicSalary:        data.basicSalary        != null ? new Decimal(data.basicSalary)        : undefined,
+        housingAllowance:   data.housingAllowance   != null ? new Decimal(data.housingAllowance)   : undefined,
+        transportAllowance: data.transportAllowance != null ? new Decimal(data.transportAllowance) : undefined,
+        medicalAllowance:   data.medicalAllowance   != null ? new Decimal(data.medicalAllowance)   : undefined,
+        otherAllowances:    data.otherAllowances    != null ? new Decimal(data.otherAllowances)    : undefined,
+        isActive:           data.isActive           != null ? Boolean(data.isActive)               : undefined,
+      },
+    });
+  }
+
+  async deleteSalaryGrade(id: string, organizationId: string) {
+    const existing = await this.prisma.salaryGrade.findFirst({ where: { id, organizationId } });
+    if (!existing) throw new NotFoundException("Salary grade not found");
+    await this.prisma.salaryGrade.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  /** Return the tax preview that would result from applying a salary grade. */
+  previewGrade(id: string, organizationId: string, applyNhf = true) {
+    return this.prisma.salaryGrade.findFirst({ where: { id, organizationId } }).then((grade) => {
+      if (!grade) throw new NotFoundException("Salary grade not found");
+      const tax = computeNigerianTax({
+        basicSalary:        Number(grade.basicSalary),
+        housingAllowance:   Number(grade.housingAllowance),
+        transportAllowance: Number(grade.transportAllowance),
+        medicalAllowance:   Number(grade.medicalAllowance),
+        otherAllowances:    Number(grade.otherAllowances),
+        applyNhf,
+      });
+      return { grade, tax };
+    });
   }
 }
