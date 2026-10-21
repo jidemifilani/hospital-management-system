@@ -37,7 +37,9 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, ShoppingCart, Package, CheckCircle, Clock } from "lucide-react";
+import { Plus, ShoppingCart, Package, CheckCircle, Clock, Truck, FileText, GitMerge, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
 
 const STATUS_OPTIONS = ["DRAFT", "SUBMITTED", "APPROVED", "ORDERED", "PARTIALLY_RECEIVED", "RECEIVED", "CANCELLED"];
@@ -159,6 +161,246 @@ function CreatePODialog({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
+const fmtN = (n: any) => `₦${Number(n ?? 0).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
+
+function matchBadge(status: string) {
+  if (status === "OK")             return <span className="text-green-600 flex items-center gap-1 text-xs"><CheckCircle2 className="h-3 w-3" />OK</span>;
+  if (status === "QTY_VARIANCE")   return <span className="text-orange-600 flex items-center gap-1 text-xs"><AlertTriangle className="h-3 w-3" />Qty Var</span>;
+  if (status === "PRICE_VARIANCE") return <span className="text-orange-600 flex items-center gap-1 text-xs"><AlertTriangle className="h-3 w-3" />Price Var</span>;
+  if (status === "BOTH_VARIANCE")  return <span className="text-red-600 flex items-center gap-1 text-xs"><XCircle className="h-3 w-3" />Both Var</span>;
+  if (status === "NOT_INVOICED")   return <span className="text-gray-400 text-xs">Not invoiced</span>;
+  return <span className="text-xs text-muted-foreground">{status}</span>;
+}
+
+function GrnTab({ po }: { po: any }) {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<{ receivedAt: string; notes: string; lines: { poItemId: string; quantity: string; unitCost: string }[] }>({
+    receivedAt: new Date().toISOString().slice(0, 10),
+    notes: "",
+    lines: (po.items ?? []).map((i: any) => ({ poItemId: i.id, quantity: String(i.quantity - i.receivedQuantity), unitCost: String(i.unitPrice) })),
+  });
+
+  const { data: grns = [], refetch } = useQuery({
+    queryKey: ["grns", po.id],
+    queryFn: () => api.get(`/procurement/${po.id}/grns`).then((r) => r.data),
+  });
+
+  const createGrn = useMutation({
+    mutationFn: (data: any) => api.post(`/procurement/${po.id}/grns`, data).then((r) => r.data),
+    onSuccess: () => { setShowForm(false); refetch(); qc.invalidateQueries({ queryKey: ["purchase-orders"] }); },
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase text-muted-foreground">Goods Receipt Notes</p>
+        <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setShowForm(!showForm)}>
+          <Plus className="h-3 w-3 mr-1" />New GRN
+        </Button>
+      </div>
+
+      {showForm && (
+        <div className="rounded-md border p-3 space-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Received Date</Label>
+              <Input type="date" value={form.receivedAt} onChange={(e) => setForm({ ...form, receivedAt: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Notes</Label>
+              <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </div>
+          </div>
+          <table className="w-full text-xs border-collapse">
+            <thead><tr className="border-b text-muted-foreground"><th className="text-left py-1">Item</th><th className="text-right py-1 w-20">Qty</th><th className="text-right py-1 w-28">Unit Cost</th></tr></thead>
+            <tbody>
+              {form.lines.map((line, i) => {
+                const item = (po.items ?? []).find((x: any) => x.id === line.poItemId);
+                return (
+                  <tr key={i} className="border-b">
+                    <td className="py-1">{item?.itemName}</td>
+                    <td className="py-1 text-right"><Input className="h-7 text-xs w-20 ml-auto" type="number" value={line.quantity} onChange={(e) => { const n = [...form.lines]; n[i]!.quantity = e.target.value; setForm({ ...form, lines: n }); }} /></td>
+                    <td className="py-1 text-right"><Input className="h-7 text-xs w-28 ml-auto" type="number" value={line.unitCost} onChange={(e) => { const n = [...form.lines]; n[i]!.unitCost = e.target.value; setForm({ ...form, lines: n }); }} /></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <Button size="sm" className="w-full" disabled={createGrn.isPending}
+            onClick={() => createGrn.mutate({ ...form, lines: form.lines.filter((l) => Number(l.quantity) > 0).map((l) => ({ ...l, quantity: Number(l.quantity), unitCost: Number(l.unitCost) })) })}>
+            {createGrn.isPending ? "Saving..." : "Create GRN"}
+          </Button>
+        </div>
+      )}
+
+      {(grns as any[]).length === 0 && !showForm && <p className="text-xs text-muted-foreground">No GRNs yet.</p>}
+      {(grns as any[]).map((grn) => (
+        <div key={grn.id} className="rounded-md border p-2 space-y-1 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="font-mono font-medium">{grn.grnNumber}</span>
+            <span className="text-muted-foreground">{format(new Date(grn.receivedAt), "dd MMM yyyy")}</span>
+          </div>
+          {grn.receivedBy && <p className="text-muted-foreground">Received by {grn.receivedBy.firstName} {grn.receivedBy.lastName}</p>}
+          {grn.lines.map((l: any) => (
+            <div key={l.id} className="flex justify-between border-t pt-1">
+              <span>{l.poItem?.itemName}</span>
+              <span>{l.quantity} × {fmtN(l.unitCost)}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SupplierInvoiceTab({ po }: { po: any }) {
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<{ vendorInvoiceNo: string; invoiceDate: string; dueDate: string; notes: string; lines: { poItemId: string; description: string; quantity: string; unitPrice: string }[] }>({
+    vendorInvoiceNo: "",
+    invoiceDate: new Date().toISOString().slice(0, 10),
+    dueDate: "",
+    notes: "",
+    lines: (po.items ?? []).map((i: any) => ({ poItemId: i.id, description: i.itemName, quantity: String(i.quantity), unitPrice: String(i.unitPrice) })),
+  });
+  const [matchResult, setMatchResult] = useState<any>(null);
+
+  const { data: invoices = [], refetch } = useQuery({
+    queryKey: ["supplier-invoices", po.id],
+    queryFn: () => api.get(`/procurement/${po.id}/supplier-invoices`).then((r) => r.data),
+  });
+
+  const createSI = useMutation({
+    mutationFn: (data: any) => api.post(`/procurement/${po.id}/supplier-invoices`, data).then((r) => r.data),
+    onSuccess: () => { setShowForm(false); refetch(); },
+  });
+
+  const runMatch = useMutation({
+    mutationFn: (siId: string) => api.post(`/procurement/supplier-invoices/${siId}/run-match`).then((r) => r.data),
+    onSuccess: (data) => { setMatchResult(data); refetch(); },
+  });
+
+  const approveInvoice = useMutation({
+    mutationFn: (siId: string) => api.post(`/procurement/supplier-invoices/${siId}/approve`).then((r) => r.data),
+    onSuccess: () => refetch(),
+  });
+
+  const siBadge = (status: string) => {
+    const map: Record<string, string> = {
+      PENDING: "bg-gray-100 text-gray-800", MATCHED: "bg-green-100 text-green-800",
+      DISCREPANCY: "bg-red-100 text-red-800", APPROVED: "bg-blue-100 text-blue-800",
+      PAID: "bg-emerald-100 text-emerald-800", DISPUTED: "bg-orange-100 text-orange-800",
+    };
+    return <Badge className={`text-xs ${map[status] ?? "bg-gray-100 text-gray-800"}`}>{status}</Badge>;
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase text-muted-foreground">Supplier Invoices</p>
+        <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setShowForm(!showForm)}>
+          <Plus className="h-3 w-3 mr-1" />New Invoice
+        </Button>
+      </div>
+
+      {showForm && (
+        <div className="rounded-md border p-3 space-y-3 text-sm">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1"><Label className="text-xs">Vendor Invoice #</Label><Input value={form.vendorInvoiceNo} onChange={(e) => setForm({ ...form, vendorInvoiceNo: e.target.value })} placeholder="Optional" /></div>
+            <div className="space-y-1"><Label className="text-xs">Invoice Date</Label><Input type="date" value={form.invoiceDate} onChange={(e) => setForm({ ...form, invoiceDate: e.target.value })} /></div>
+            <div className="space-y-1"><Label className="text-xs">Due Date</Label><Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} /></div>
+          </div>
+          <table className="w-full text-xs border-collapse">
+            <thead><tr className="border-b text-muted-foreground"><th className="text-left py-1">Description</th><th className="text-right py-1 w-20">Qty</th><th className="text-right py-1 w-28">Unit Price</th><th className="text-right py-1 w-24">Total</th></tr></thead>
+            <tbody>
+              {form.lines.map((line, i) => (
+                <tr key={i} className="border-b">
+                  <td className="py-1"><Input className="h-7 text-xs" value={line.description} onChange={(e) => { const n = [...form.lines]; n[i]!.description = e.target.value; setForm({ ...form, lines: n }); }} /></td>
+                  <td className="py-1 text-right"><Input className="h-7 text-xs w-20 ml-auto" type="number" value={line.quantity} onChange={(e) => { const n = [...form.lines]; n[i]!.quantity = e.target.value; setForm({ ...form, lines: n }); }} /></td>
+                  <td className="py-1 text-right"><Input className="h-7 text-xs w-28 ml-auto" type="number" value={line.unitPrice} onChange={(e) => { const n = [...form.lines]; n[i]!.unitPrice = e.target.value; setForm({ ...form, lines: n }); }} /></td>
+                  <td className="py-1 text-right text-muted-foreground">{fmtN(Number(line.quantity) * Number(line.unitPrice))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Button size="sm" className="w-full" disabled={createSI.isPending}
+            onClick={() => createSI.mutate({ ...form, lines: form.lines.filter((l) => l.description).map((l) => ({ ...l, quantity: Number(l.quantity), unitPrice: Number(l.unitPrice) })) })}>
+            {createSI.isPending ? "Saving..." : "Create Supplier Invoice"}
+          </Button>
+        </div>
+      )}
+
+      {(invoices as any[]).length === 0 && !showForm && <p className="text-xs text-muted-foreground">No supplier invoices yet.</p>}
+      {(invoices as any[]).map((si) => (
+        <div key={si.id} className="rounded-md border p-3 space-y-2 text-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-mono font-medium">{si.siNumber}</span>
+              {si.vendorInvoiceNo && <span className="text-muted-foreground">({si.vendorInvoiceNo})</span>}
+              {siBadge(si.status)}
+              <Badge className={`text-xs ${si.matchStatus === "MATCHED" ? "bg-green-100 text-green-800" : si.matchStatus === "DISCREPANCY" ? "bg-red-100 text-red-800" : "bg-gray-100 text-gray-800"}`}>
+                {si.matchStatus}
+              </Badge>
+            </div>
+            <span className="font-semibold">{fmtN(si.totalAmount)}</span>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => runMatch.mutate(si.id)} disabled={runMatch.isPending}>
+              <GitMerge className="h-3 w-3 mr-1" />{runMatch.isPending ? "Matching..." : "Run 3-Way Match"}
+            </Button>
+            {si.matchStatus === "MATCHED" && si.status !== "APPROVED" && si.status !== "PAID" && (
+              <Button size="sm" className="h-6 px-2 text-xs bg-green-600 hover:bg-green-700" onClick={() => approveInvoice.mutate(si.id)} disabled={approveInvoice.isPending}>
+                <CheckCircle2 className="h-3 w-3 mr-1" />Approve
+              </Button>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {/* Match result panel */}
+      {matchResult && (
+        <div className="rounded-md border p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase text-muted-foreground">Match Result</p>
+            <Badge className={matchResult.matchStatus === "MATCHED" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+              {matchResult.matchStatus}
+            </Badge>
+          </div>
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="border-b text-muted-foreground">
+                <th className="text-left py-1">Item</th>
+                <th className="text-right py-1">PO Qty</th>
+                <th className="text-right py-1">GRN Qty</th>
+                <th className="text-right py-1">Inv Qty</th>
+                <th className="text-right py-1">PO Price</th>
+                <th className="text-right py-1">Inv Price</th>
+                <th className="text-right py-1">Price Var</th>
+                <th className="py-1">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {matchResult.rows.map((row: any) => (
+                <tr key={row.poItemId} className="border-b">
+                  <td className="py-1">{row.itemName}</td>
+                  <td className="text-right py-1">{row.poQty}</td>
+                  <td className={`text-right py-1 ${row.grnQty < row.poQty ? "text-orange-600" : ""}`}>{row.grnQty}</td>
+                  <td className={`text-right py-1 ${row.qtyVariance !== 0 ? "text-red-600 font-medium" : ""}`}>{row.invoicedQty}</td>
+                  <td className="text-right py-1">{fmtN(row.poUnitPrice)}</td>
+                  <td className={`text-right py-1 ${row.priceVariance !== 0 ? "text-red-600 font-medium" : ""}`}>{fmtN(row.invoicedUnitPrice)}</td>
+                  <td className={`text-right py-1 ${row.priceVariance !== 0 ? "text-red-600" : "text-green-600"}`}>{fmtN(row.priceVariance)}</td>
+                  <td className="py-1 pl-2">{matchBadge(row.matchStatus)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PODetailSheet({ po, onSuccess }: { po: any; onSuccess: () => void }) {
   const qc = useQueryClient();
 
@@ -166,8 +408,6 @@ function PODetailSheet({ po, onSuccess }: { po: any; onSuccess: () => void }) {
     mutationFn: (status: string) => api.patch(`/procurement/${po.id}/status`, { status }).then((r) => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["purchase-orders"] }); onSuccess(); },
   });
-
-  const fmt = (n: number) => `₦${Number(n).toLocaleString("en-NG", { minimumFractionDigits: 2 })}`;
 
   const nextStatus: Record<string, string> = {
     DRAFT: "SUBMITTED",
@@ -181,52 +421,72 @@ function PODetailSheet({ po, onSuccess }: { po: any; onSuccess: () => void }) {
       <SheetTrigger asChild>
         <Button size="sm" variant="outline" className="h-7 px-2">View</Button>
       </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{po.poNumber} — {po.vendorName}</SheetTitle>
         </SheetHeader>
         <div className="mt-4 space-y-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {statusBadge(po.status)}
-            <span className="text-sm text-muted-foreground">Total: {fmt(po.totalAmount)}</span>
+            <span className="text-sm text-muted-foreground">Total: {fmtN(po.totalAmount)}</span>
+            {po.vendorContact && <span className="text-sm text-muted-foreground">· {po.vendorContact}</span>}
+            {po.expectedAt && <span className="text-sm text-muted-foreground">· Expected: {format(new Date(po.expectedAt), "dd MMM yyyy")}</span>}
           </div>
-          {po.vendorContact && <p className="text-sm">Contact: {po.vendorContact}</p>}
-          {po.expectedAt && <p className="text-sm text-muted-foreground">Expected: {format(new Date(po.expectedAt), "dd MMM yyyy")}</p>}
-          <div>
-            <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Line Items</p>
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="border-b text-xs text-muted-foreground">
-                  <th className="text-left py-1">Item</th>
-                  <th className="text-right py-1">Qty</th>
-                  <th className="text-right py-1">Price</th>
-                  <th className="text-right py-1">Total</th>
-                  <th className="text-right py-1">Received</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(po.items ?? []).map((item: any) => (
-                  <tr key={item.id} className="border-b">
-                    <td className="py-1">{item.itemName}{item.unit ? ` (${item.unit})` : ""}</td>
-                    <td className="text-right py-1">{item.quantity}</td>
-                    <td className="text-right py-1">{fmt(item.unitPrice)}</td>
-                    <td className="text-right py-1">{fmt(item.totalPrice)}</td>
-                    <td className="text-right py-1">{item.receivedQuantity}/{item.quantity}</td>
+
+          <Tabs defaultValue="lines">
+            <TabsList className="h-8">
+              <TabsTrigger value="lines" className="text-xs h-7"><Package className="h-3 w-3 mr-1" />Order Lines</TabsTrigger>
+              <TabsTrigger value="grns" className="text-xs h-7"><Truck className="h-3 w-3 mr-1" />GRNs</TabsTrigger>
+              <TabsTrigger value="invoices" className="text-xs h-7"><FileText className="h-3 w-3 mr-1" />Supplier Invoices</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="lines" className="mt-3">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b text-xs text-muted-foreground">
+                    <th className="text-left py-1">Item</th>
+                    <th className="text-right py-1">Qty</th>
+                    <th className="text-right py-1">Price</th>
+                    <th className="text-right py-1">Total</th>
+                    <th className="text-right py-1">Rcvd</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {nextStatus[po.status] ? (
-            <Button className="w-full" onClick={() => updateStatus.mutate(nextStatus[po.status]!)} disabled={updateStatus.isPending}>
-              Mark as {nextStatus[po.status]!.replace(/_/g, " ")}
-            </Button>
-          ) : null}
-          {po.status !== "CANCELLED" && po.status !== "RECEIVED" && (
-            <Button variant="outline" className="w-full text-red-600" onClick={() => updateStatus.mutate("CANCELLED")} disabled={updateStatus.isPending}>
-              Cancel Order
-            </Button>
-          )}
+                </thead>
+                <tbody>
+                  {(po.items ?? []).map((item: any) => (
+                    <tr key={item.id} className="border-b">
+                      <td className="py-1">{item.itemName}{item.unit ? ` (${item.unit})` : ""}</td>
+                      <td className="text-right py-1">{item.quantity}</td>
+                      <td className="text-right py-1">{fmtN(item.unitPrice)}</td>
+                      <td className="text-right py-1">{fmtN(item.totalPrice)}</td>
+                      <td className={`text-right py-1 ${item.receivedQuantity >= item.quantity ? "text-green-600" : item.receivedQuantity > 0 ? "text-orange-600" : ""}`}>
+                        {item.receivedQuantity}/{item.quantity}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="mt-3 flex gap-2 flex-wrap">
+                {nextStatus[po.status] && (
+                  <Button className="flex-1" onClick={() => updateStatus.mutate(nextStatus[po.status]!)} disabled={updateStatus.isPending}>
+                    Mark as {nextStatus[po.status]!.replace(/_/g, " ")}
+                  </Button>
+                )}
+                {po.status !== "CANCELLED" && po.status !== "RECEIVED" && (
+                  <Button variant="outline" className="text-red-600" onClick={() => updateStatus.mutate("CANCELLED")} disabled={updateStatus.isPending}>
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="grns" className="mt-3">
+              <GrnTab po={po} />
+            </TabsContent>
+
+            <TabsContent value="invoices" className="mt-3">
+              <SupplierInvoiceTab po={po} />
+            </TabsContent>
+          </Tabs>
         </div>
       </SheetContent>
     </Sheet>

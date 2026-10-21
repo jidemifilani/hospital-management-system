@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from "@nestjs/common";
 import { ProcurementService } from "./procurement.service";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
@@ -51,5 +51,49 @@ export class ProcurementController {
     @CurrentUser() u: any,
   ) {
     return this.service.receiveItem(id, itemId, qty, u.organizationId);
+  }
+
+  // ── Goods Receipt Notes ────────────────────────────────────────────────────
+
+  @Post(":id/grns")
+  @RequirePermissions(PERMISSIONS.PROCUREMENT_MANAGE)
+  createGrn(@Param("id") id: string, @Body() body: any, @CurrentUser() u: any) {
+    return this.service.createGrn(id, u.organizationId, u.staffId, body);
+  }
+
+  @Get(":id/grns")
+  @RequirePermissions(PERMISSIONS.PROCUREMENT_READ)
+  listGrns(@Param("id") id: string, @CurrentUser() u: any) {
+    return this.service.listGrns(id, u.organizationId);
+  }
+
+  // ── Supplier Invoices ──────────────────────────────────────────────────────
+
+  @Post(":id/supplier-invoices")
+  @RequirePermissions(PERMISSIONS.PROCUREMENT_MANAGE)
+  createSupplierInvoice(@Param("id") id: string, @Body() body: any, @CurrentUser() u: any) {
+    return this.service.createSupplierInvoice(id, u.organizationId, body);
+  }
+
+  @Get(":id/supplier-invoices")
+  @RequirePermissions(PERMISSIONS.PROCUREMENT_READ)
+  listSupplierInvoices(@Param("id") id: string, @CurrentUser() u: any) {
+    return this.service.listSupplierInvoices(id, u.organizationId);
+  }
+
+  // ── 3-Way Match ────────────────────────────────────────────────────────────
+
+  @Post("supplier-invoices/:siId/run-match")
+  @RequirePermissions(PERMISSIONS.PROCUREMENT_MANAGE)
+  @HttpCode(HttpStatus.OK)
+  runMatch(@Param("siId") siId: string, @CurrentUser() u: any) {
+    return this.service.runThreeWayMatch(siId, u.organizationId);
+  }
+
+  @Post("supplier-invoices/:siId/approve")
+  @RequirePermissions(PERMISSIONS.PROCUREMENT_MANAGE)
+  @HttpCode(HttpStatus.OK)
+  approveInvoice(@Param("siId") siId: string, @CurrentUser() u: any) {
+    return this.service.approveSupplierInvoice(siId, u.organizationId);
   }
 }
