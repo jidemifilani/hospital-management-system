@@ -180,3 +180,83 @@ export class ValuationCorrectionDto {
   @MaxLength(240)
   reason?: string;
 }
+
+export class CreateReorderRuleDto {
+  @IsString()
+  @IsNotEmpty()
+  itemId: string;
+
+  @IsInt()
+  @Min(0)
+  minQty: number;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  maxQty?: number;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  reorderQty?: number;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(160)
+  vendorName?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(80)
+  vendorContact?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(160)
+  vendorEmail?: string;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  leadTimeDays?: number;
+}
+
+export class UpdateReorderRuleDto {
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  minQty?: number;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  maxQty?: number;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  reorderQty?: number;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(160)
+  vendorName?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(80)
+  vendorContact?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(160)
+  vendorEmail?: string;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  leadTimeDays?: number;
+
+  @IsOptional()
+  isActive?: boolean;
+}

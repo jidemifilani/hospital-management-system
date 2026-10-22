@@ -248,6 +248,8 @@ model Organization {
   salaryGrades         SalaryGrade[]
   goodsReceiptNotes    GoodsReceiptNote[]
   supplierInvoices     SupplierInvoice[]
+  reorderRules             ReorderRule[]
+  replenishmentSuggestions ReplenishmentSuggestion[]
 
   @@map("organizations")
 }
@@ -3614,6 +3616,8 @@ model InventoryItem {
   bomInputs    BomLine[]               @relation("BomInput")
   productionIn     ProductionConsumption[] @relation("ProductionInput")
   onlineOrderItems OnlineOrderItem[]
+  reorderRules             ReorderRule[]
+  replenishmentSuggestions ReplenishmentSuggestion[]
 
   @@unique([code, organizationId])
   @@index([organizationId, category])
@@ -3692,6 +3696,63 @@ model StockBatch {
   @@index([itemId, expiresAt])
   @@index([organizationId, expiresAt])
   @@map("stock_batches")
+}
+
+// ─── Automated Reorder / Replenishment ───────────────────────────────────────
+
+enum ReplenishmentSuggestionStatus {
+  PENDING
+  CONVERTED
+  DISMISSED
+}
+
+/// One reorder rule per item (optionally per location). When stock falls
+/// below minQty the replenishment engine generates a suggestion.
+model ReorderRule {
+  id             String   @id @default(cuid())
+  itemId         String
+  minQty         Int
+  maxQty         Int?
+  reorderQty     Int?
+  vendorName     String?
+  vendorContact  String?
+  vendorEmail    String?
+  leadTimeDays   Int      @default(0)
+  isActive       Boolean  @default(true)
+  lastTriggeredAt DateTime?
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  item         InventoryItem            @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  organization Organization             @relation(fields: [organizationId], references: [id])
+  suggestions  ReplenishmentSuggestion[]
+
+  @@index([organizationId, isActive])
+  @@index([itemId])
+  @@map("reorder_rules")
+}
+
+/// Created by the replenishment engine when a rule fires. Converted into
+/// a draft PO once the storekeeper decides to act on it.
+model ReplenishmentSuggestion {
+  id              String                       @id @default(cuid())
+  ruleId          String
+  itemId          String
+  currentQty      Int
+  minQty          Int
+  suggestedQty    Int
+  status          ReplenishmentSuggestionStatus @default(PENDING)
+  purchaseOrderId String?
+  organizationId  String
+  triggeredAt     DateTime @default(now())
+
+  rule         ReorderRule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  item         InventoryItem @relation(fields: [itemId], references: [id])
+  organization Organization  @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("replenishment_suggestions")
 }
 
 // ─── Point of Sale ────────────────────────────────────────────────────────────

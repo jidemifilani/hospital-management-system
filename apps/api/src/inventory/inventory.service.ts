@@ -605,6 +605,148 @@ export class InventoryService {
     });
   }
 
+  // ── Reorder Rules ──────────────────────────────────────────────────────────
+
+  listReorderRules(organizationId: string) {
+    return this.prisma.reorderRule.findMany({
+      where: { organizationId },
+      include: { item: { select: { code: true, name: true, unit: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  async createReorderRule(
+    dto: {
+      itemId: string; minQty: number; maxQty?: number; reorderQty?: number;
+      vendorName?: string; vendorContact?: string; vendorEmail?: string; leadTimeDays?: number;
+    },
+    organizationId: string,
+  ) {
+    const item = await this.prisma.inventoryItem.findFirst({ where: { id: dto.itemId, organizationId } });
+    if (!item) throw new NotFoundException("Inventory item not found");
+    return this.prisma.reorderRule.create({ data: { ...dto, organizationId } });
+  }
+
+  async updateReorderRule(id: string, dto: Partial<{
+    minQty: number; maxQty: number; reorderQty: number;
+    vendorName: string; vendorContact: string; vendorEmail: string;
+    leadTimeDays: number; isActive: boolean;
+  }>, organizationId: string) {
+    const rule = await this.prisma.reorderRule.findFirst({ where: { id, organizationId } });
+    if (!rule) throw new NotFoundException("Reorder rule not found");
+    return this.prisma.reorderRule.update({ where: { id }, data: dto });
+  }
+
+  async deleteReorderRule(id: string, organizationId: string) {
+    const rule = await this.prisma.reorderRule.findFirst({ where: { id, organizationId } });
+    if (!rule) throw new NotFoundException("Reorder rule not found");
+    await this.prisma.reorderRule.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  // ── Replenishment ───────────────────────────────────────────────────────────
+
+  /** Scans all active rules. For every item below minQty, upserts a PENDING suggestion. */
+  async runReplenishment(organizationId: string) {
+    const rules = await this.prisma.reorderRule.findMany({
+      where: { organizationId, isActive: true },
+      include: { item: { select: { code: true, name: true, unit: true, requiresBatch: true } } },
+    });
+
+    const triggered: string[] = [];
+    const skipped: string[] = [];
+
+    for (const rule of rules) {
+      const agg = await this.prisma.stockLevel.aggregate({
+        where: { itemId: rule.itemId },
+        _sum: { quantity: true },
+      });
+      const onHand = agg._sum.quantity ?? 0;
+
+      if (onHand < rule.minQty) {
+        const qty = rule.reorderQty ?? (rule.maxQty ? Math.max(0, rule.maxQty - onHand) : rule.minQty);
+
+        await this.prisma.replenishmentSuggestion.create({
+          data: {
+            ruleId: rule.id,
+            itemId: rule.itemId,
+            currentQty: onHand,
+            minQty: rule.minQty,
+            suggestedQty: qty,
+            organizationId,
+          },
+        });
+
+        await this.prisma.reorderRule.update({
+          where: { id: rule.id },
+          data: { lastTriggeredAt: new Date() },
+        });
+
+        triggered.push(rule.item.name);
+      } else {
+        skipped.push(rule.item.name);
+      }
+    }
+
+    return { triggered, skipped, total: rules.length };
+  }
+
+  listSuggestions(organizationId: string, status = "PENDING") {
+    return this.prisma.replenishmentSuggestion.findMany({
+      where: { organizationId, status: status as any },
+      include: {
+        item: { select: { code: true, name: true, unit: true } },
+        rule: { select: { vendorName: true, vendorContact: true, vendorEmail: true, leadTimeDays: true } },
+      },
+      orderBy: { triggeredAt: "desc" },
+    });
+  }
+
+  async convertSuggestion(id: string, organizationId: string, createdById?: string) {
+    const suggestion = await this.prisma.replenishmentSuggestion.findFirst({
+      where: { id, organizationId, status: "PENDING" },
+      include: { item: true, rule: true },
+    });
+    if (!suggestion) throw new NotFoundException("Pending suggestion not found");
+
+    const po = await this.prisma.purchaseOrder.create({
+      data: {
+        poNumber: `PO-REPL-${Date.now().toString().slice(-8)}`,
+        vendorName: suggestion.rule.vendorName ?? "TBD",
+        vendorContact: suggestion.rule.vendorContact ?? undefined,
+        vendorEmail: suggestion.rule.vendorEmail ?? undefined,
+        notes: `Auto-generated from replenishment suggestion for ${suggestion.item.name}`,
+        totalAmount: 0,
+        createdById,
+        organizationId,
+        items: {
+          create: [{
+            itemName: suggestion.item.name,
+            unit: suggestion.item.unit,
+            quantity: suggestion.suggestedQty,
+            unitPrice: Number(suggestion.item.averageCost),
+            totalPrice: suggestion.suggestedQty * Number(suggestion.item.averageCost),
+          }],
+        },
+      },
+    });
+
+    await this.prisma.replenishmentSuggestion.update({
+      where: { id },
+      data: { status: "CONVERTED", purchaseOrderId: po.id },
+    });
+
+    return { purchaseOrderId: po.id, poNumber: po.poNumber };
+  }
+
+  async dismissSuggestion(id: string, organizationId: string) {
+    const suggestion = await this.prisma.replenishmentSuggestion.findFirst({
+      where: { id, organizationId, status: "PENDING" },
+    });
+    if (!suggestion) throw new NotFoundException("Pending suggestion not found");
+    return this.prisma.replenishmentSuggestion.update({ where: { id }, data: { status: "DISMISSED" } });
+  }
+
   /** Levels move only here, inside the caller's transaction. */
   private async adjustLevel(
     tx: Prisma.TransactionClient,

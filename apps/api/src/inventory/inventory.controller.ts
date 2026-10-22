@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from "@nestjs/common";
 import { InventoryService } from "./inventory.service";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
@@ -15,6 +15,8 @@ import {
   TransferStockDto,
   StockCountDto,
   ValuationCorrectionDto,
+  CreateReorderRuleDto,
+  UpdateReorderRuleDto,
 } from "./dto/inventory.dto";
 
 @Controller("inventory")
@@ -132,5 +134,67 @@ export class InventoryController {
       locationId,
       limit: limit ? Number(limit) : undefined,
     });
+  }
+
+  // ── Reorder Rules ──────────────────────────────────────────────────────────
+
+  @Get("reorder-rules")
+  @RequirePermissions(PERMISSIONS.INVENTORY_READ)
+  listReorderRules(@CurrentUser() user: JwtPayload) {
+    return this.inventory.listReorderRules(user.organizationId!);
+  }
+
+  @Post("reorder-rules")
+  @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
+  createReorderRule(@Body() body: CreateReorderRuleDto, @CurrentUser() user: JwtPayload) {
+    return this.inventory.createReorderRule(body, user.organizationId!);
+  }
+
+  @Patch("reorder-rules/:id")
+  @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
+  updateReorderRule(
+    @Param("id") id: string,
+    @Body() body: UpdateReorderRuleDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.inventory.updateReorderRule(id, body, user.organizationId!);
+  }
+
+  @Delete("reorder-rules/:id")
+  @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
+  deleteReorderRule(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    return this.inventory.deleteReorderRule(id, user.organizationId!);
+  }
+
+  // ── Replenishment ───────────────────────────────────────────────────────────
+
+  @Post("replenishment/run")
+  @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
+  @HttpCode(HttpStatus.OK)
+  runReplenishment(@CurrentUser() user: JwtPayload) {
+    return this.inventory.runReplenishment(user.organizationId!);
+  }
+
+  @Get("replenishment/suggestions")
+  @RequirePermissions(PERMISSIONS.INVENTORY_READ)
+  listSuggestions(
+    @CurrentUser() user: JwtPayload,
+    @Query("status") status?: string,
+  ) {
+    return this.inventory.listSuggestions(user.organizationId!, status);
+  }
+
+  @Post("replenishment/suggestions/:id/convert")
+  @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
+  @HttpCode(HttpStatus.OK)
+  convertSuggestion(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    return this.inventory.convertSuggestion(id, user.organizationId!, user.staffId ?? undefined);
+  }
+
+  @Post("replenishment/suggestions/:id/dismiss")
+  @RequirePermissions(PERMISSIONS.INVENTORY_MANAGE)
+  @HttpCode(HttpStatus.OK)
+  dismissSuggestion(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    return this.inventory.dismissSuggestion(id, user.organizationId!);
   }
 }

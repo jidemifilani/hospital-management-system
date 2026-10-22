@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Boxes, Loader2, Plus, PackagePlus, ArrowRightLeft, ClipboardCheck, AlertTriangle, Scale,
+  RefreshCw, ShoppingCart, CheckCircle2, XCircle, Pencil, Trash2, Settings2,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -343,9 +344,353 @@ function NewItemDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ── Reorder Rules ────────────────────────────────────────────────────────────
+
+interface ReorderRule {
+  id: string;
+  itemId: string;
+  minQty: number;
+  maxQty: number | null;
+  reorderQty: number | null;
+  vendorName: string | null;
+  leadTimeDays: number;
+  isActive: boolean;
+  item: { code: string; name: string; unit: string };
+}
+
+function ReorderRulesTab({ items }: { items: { id: string; code: string; name: string; unit: string }[] }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<ReorderRule | null>(null);
+  const [form, setForm] = useState({
+    itemId: "", minQty: "", maxQty: "", reorderQty: "",
+    vendorName: "", vendorContact: "", vendorEmail: "", leadTimeDays: "0",
+  });
+
+  const { data: rules = [], isLoading } = useQuery<ReorderRule[]>({
+    queryKey: ["inv-reorder-rules"],
+    queryFn: async () => (await api.get("/inventory/reorder-rules")).data,
+  });
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ itemId: "", minQty: "", maxQty: "", reorderQty: "", vendorName: "", vendorContact: "", vendorEmail: "", leadTimeDays: "0" });
+    setShowForm(true);
+  };
+
+  const openEdit = (r: ReorderRule) => {
+    setEditing(r);
+    setForm({
+      itemId: r.itemId, minQty: String(r.minQty), maxQty: r.maxQty != null ? String(r.maxQty) : "",
+      reorderQty: r.reorderQty != null ? String(r.reorderQty) : "",
+      vendorName: r.vendorName ?? "", vendorContact: "", vendorEmail: "", leadTimeDays: String(r.leadTimeDays),
+    });
+    setShowForm(true);
+  };
+
+  const save = useMutation({
+    mutationFn: () => {
+      const payload: any = {
+        minQty: Number(form.minQty),
+        ...(form.maxQty && { maxQty: Number(form.maxQty) }),
+        ...(form.reorderQty && { reorderQty: Number(form.reorderQty) }),
+        ...(form.vendorName && { vendorName: form.vendorName }),
+        ...(form.vendorContact && { vendorContact: form.vendorContact }),
+        ...(form.vendorEmail && { vendorEmail: form.vendorEmail }),
+        leadTimeDays: Number(form.leadTimeDays),
+      };
+      if (editing) return api.patch(`/inventory/reorder-rules/${editing.id}`, payload);
+      return api.post("/inventory/reorder-rules", { ...payload, itemId: form.itemId });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inv-reorder-rules"] });
+      toast({ title: editing ? "Rule updated" : "Rule created" });
+      setShowForm(false);
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const del = useMutation({
+    mutationFn: (id: string) => api.delete(`/inventory/reorder-rules/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inv-reorder-rules"] });
+      toast({ title: "Rule deleted" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const valid = (editing || form.itemId) && Number(form.minQty) >= 0;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between px-4 pb-2 pt-4">
+        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          <Settings2 className="h-4 w-4" /> Reorder Rules
+        </CardTitle>
+        <Button size="sm" onClick={openCreate}><Plus className="mr-1 h-3.5 w-3.5" /> Add Rule</Button>
+      </CardHeader>
+      <CardContent className="px-4 pb-4">
+        {isLoading ? (
+          <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Item</TableHead>
+                <TableHead className="text-right">Min</TableHead>
+                <TableHead className="text-right">Max</TableHead>
+                <TableHead className="text-right">Order qty</TableHead>
+                <TableHead>Vendor</TableHead>
+                <TableHead className="text-right">Lead (days)</TableHead>
+                <TableHead>Active</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rules.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                    No reorder rules yet. Add one to enable automated replenishment.
+                  </TableCell>
+                </TableRow>
+              )}
+              {rules.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell>
+                    <div className="text-sm font-medium">{r.item.name}</div>
+                    <div className="font-mono text-xs text-muted-foreground">{r.item.code}</div>
+                  </TableCell>
+                  <TableCell className="text-right text-sm">{r.minQty} {r.item.unit}</TableCell>
+                  <TableCell className="text-right text-sm text-muted-foreground">{r.maxQty ?? "—"}</TableCell>
+                  <TableCell className="text-right text-sm text-muted-foreground">{r.reorderQty ?? "auto"}</TableCell>
+                  <TableCell className="text-sm">{r.vendorName ?? "—"}</TableCell>
+                  <TableCell className="text-right text-sm">{r.leadTimeDays}</TableCell>
+                  <TableCell>
+                    <Badge variant={r.isActive ? "default" : "secondary"} className="text-[10px]">
+                      {r.isActive ? "On" : "Off"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="flex items-center gap-1">
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(r)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => del.mutate(r.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+
+      {showForm && (
+        <Dialog open onOpenChange={() => setShowForm(false)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{editing ? "Edit Reorder Rule" : "New Reorder Rule"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              {!editing && (
+                <div className="space-y-1">
+                  <Label>Item</Label>
+                  <Select value={form.itemId} onValueChange={(v) => setForm((f) => ({ ...f, itemId: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select item" /></SelectTrigger>
+                    <SelectContent>
+                      {items.map((i) => (
+                        <SelectItem key={i.id} value={i.id}>{i.name} ({i.code})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label>Min qty *</Label>
+                  <Input type="number" min={0} value={form.minQty} onChange={(e) => setForm((f) => ({ ...f, minQty: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Max qty</Label>
+                  <Input type="number" min={0} value={form.maxQty} onChange={(e) => setForm((f) => ({ ...f, maxQty: e.target.value }))} placeholder="—" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Order qty</Label>
+                  <Input type="number" min={1} value={form.reorderQty} onChange={(e) => setForm((f) => ({ ...f, reorderQty: e.target.value }))} placeholder="auto" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label>Vendor name</Label>
+                  <Input value={form.vendorName} onChange={(e) => setForm((f) => ({ ...f, vendorName: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Lead time (days)</Label>
+                  <Input type="number" min={0} value={form.leadTimeDays} onChange={(e) => setForm((f) => ({ ...f, leadTimeDays: e.target.value }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label>Vendor contact</Label>
+                  <Input value={form.vendorContact} onChange={(e) => setForm((f) => ({ ...f, vendorContact: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Vendor email</Label>
+                  <Input type="email" value={form.vendorEmail} onChange={(e) => setForm((f) => ({ ...f, vendorEmail: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button disabled={!valid || save.isPending} onClick={() => save.mutate()}>
+                {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editing ? "Save changes" : "Create rule"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </Card>
+  );
+}
+
+// ── Replenishment ────────────────────────────────────────────────────────────
+
+interface Suggestion {
+  id: string;
+  currentQty: number;
+  minQty: number;
+  suggestedQty: number;
+  status: string;
+  triggeredAt: string;
+  item: { code: string; name: string; unit: string };
+  rule: { vendorName: string | null; leadTimeDays: number };
+}
+
+function ReplenishmentTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: suggestions = [], isLoading } = useQuery<Suggestion[]>({
+    queryKey: ["inv-suggestions"],
+    queryFn: async () => (await api.get("/inventory/replenishment/suggestions")).data,
+  });
+
+  const run = useMutation({
+    mutationFn: () => api.post("/inventory/replenishment/run"),
+    onSuccess: (r: any) => {
+      qc.invalidateQueries({ queryKey: ["inv-suggestions"] });
+      const d = r.data;
+      toast({ title: `Run complete — ${d.triggered.length} suggestion(s) created` });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const convert = useMutation({
+    mutationFn: (id: string) => api.post(`/inventory/replenishment/suggestions/${id}/convert`),
+    onSuccess: (r: any) => {
+      qc.invalidateQueries({ queryKey: ["inv-suggestions"] });
+      toast({ title: `Draft PO created: ${r.data.poNumber}` });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const dismiss = useMutation({
+    mutationFn: (id: string) => api.post(`/inventory/replenishment/suggestions/${id}/dismiss`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inv-suggestions"] });
+      toast({ title: "Suggestion dismissed" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const pending = suggestions.filter((s) => s.status === "PENDING");
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between px-4 pb-2 pt-4">
+        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          <RefreshCw className="h-4 w-4" /> Replenishment
+        </CardTitle>
+        <Button size="sm" onClick={() => run.mutate()} disabled={run.isPending}>
+          {run.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="mr-2 h-3.5 w-3.5" />}
+          Run check
+        </Button>
+      </CardHeader>
+      <CardContent className="px-4 pb-4">
+        {isLoading ? (
+          <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        ) : pending.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            No pending suggestions. Run a replenishment check to scan reorder rules.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Item</TableHead>
+                <TableHead className="text-right">On hand</TableHead>
+                <TableHead className="text-right">Min</TableHead>
+                <TableHead className="text-right">Order qty</TableHead>
+                <TableHead>Vendor</TableHead>
+                <TableHead>Triggered</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pending.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-sm font-medium">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                      {s.item.name}
+                    </div>
+                    <div className="font-mono text-xs text-muted-foreground">{s.item.code}</div>
+                  </TableCell>
+                  <TableCell className="text-right text-sm font-medium text-amber-700">
+                    {s.currentQty} {s.item.unit}
+                  </TableCell>
+                  <TableCell className="text-right text-sm text-muted-foreground">{s.minQty}</TableCell>
+                  <TableCell className="text-right text-sm font-semibold">{s.suggestedQty}</TableCell>
+                  <TableCell className="text-sm">{s.rule.vendorName ?? "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {new Date(s.triggeredAt).toLocaleString("en-NG", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                  </TableCell>
+                  <TableCell className="flex items-center gap-1">
+                    <Button
+                      size="sm" variant="outline" className="h-7 text-xs gap-1"
+                      disabled={convert.isPending}
+                      onClick={() => convert.mutate(s.id)}
+                    >
+                      <ShoppingCart className="h-3 w-3" /> Convert to PO
+                    </Button>
+                    <Button
+                      size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground"
+                      onClick={() => dismiss.mutate(s.id)}
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function InventoryPage() {
   const [dialog, setDialog] = useState<"receive" | "count" | "item" | null>(null);
 
+  const { data: items = [] } = useQuery<{ id: string; code: string; name: string; unit: string }[]>({
+    queryKey: ["inv-items"],
+    queryFn: async () => (await api.get("/inventory/items")).data,
+  });
   const { data: stock } = useQuery({
     queryKey: ["inv-stock"],
     queryFn: async () => (await api.get("/inventory/stock")).data,
@@ -432,6 +777,8 @@ export function InventoryPage() {
           <TabsTrigger value="stock">Stock on Hand</TabsTrigger>
           <TabsTrigger value="low">Low Stock</TabsTrigger>
           <TabsTrigger value="movements">Movements</TabsTrigger>
+          <TabsTrigger value="rules">Reorder Rules</TabsTrigger>
+          <TabsTrigger value="replenishment">Replenishment</TabsTrigger>
         </TabsList>
 
         <TabsContent value="stock" className="mt-4">
@@ -551,6 +898,14 @@ export function InventoryPage() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="rules" className="mt-4">
+          <ReorderRulesTab items={items} />
+        </TabsContent>
+
+        <TabsContent value="replenishment" className="mt-4">
+          <ReplenishmentTab />
         </TabsContent>
       </Tabs>
 
