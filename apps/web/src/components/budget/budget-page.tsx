@@ -225,7 +225,7 @@ function LinesTab() {
                     <TableCell className="font-mono text-xs">{l.account.code}</TableCell>
                     <TableCell className="text-sm">{l.account.name}</TableCell>
                     <TableCell><Badge variant="secondary" className="text-xs">{l.account.type}</Badge></TableCell>
-                    <TableCell className="text-sm">{l.month ? MONTHS[l.month].label : "Full Year"} {l.year}</TableCell>
+                    <TableCell className="text-sm">{(l.month ? MONTHS[l.month]?.label : "Full Year") ?? "Full Year"} {l.year}</TableCell>
                     <TableCell className="text-right font-mono text-sm">{naira(l.budgetedAmount)}</TableCell>
                     <TableCell className="text-right">
                       <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => del.mutate(l.id)}>

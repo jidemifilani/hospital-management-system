@@ -297,6 +297,120 @@ function Ageing({ kind }: { kind: "AR" | "AP" }) {
   );
 }
 
+interface CashFlowLine { code: string; name: string; amount: string }
+interface CashFlowSection { total: string; lines: CashFlowLine[] }
+interface CashFlowResult {
+  from: string; to: string;
+  openingCash: string; closingCash: string; netChange: string;
+  sections: { operating: CashFlowSection; investing: CashFlowSection; financing: CashFlowSection };
+  reconciled: boolean; unexplained?: string; note?: string;
+}
+
+function CashFlow() {
+  const now = new Date();
+  const [from, setFrom] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0]);
+  const [to,   setTo]   = useState(now.toISOString().split("T")[0]);
+
+  const { data, isLoading } = useQuery<CashFlowResult>({
+    queryKey: ["acc-cashflow", from, to],
+    queryFn: async () => (await api.get(`/accounting/cash-flow?from=${from}&to=${to}`)).data,
+  });
+
+  const SECTIONS = [
+    { key: "operating" as const, label: "Operating Activities", hint: "Revenue, expenses and working capital" },
+    { key: "investing" as const, label: "Investing Activities", hint: "Fixed asset purchases and disposals" },
+    { key: "financing" as const, label: "Financing Activities", hint: "Capital introduced and withdrawn" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-end gap-3">
+        <div>
+          <Label className="text-xs text-muted-foreground">From</Label>
+          <Input className="h-8 w-40 text-sm" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-xs text-muted-foreground">To</Label>
+          <Input className="h-8 w-40 text-sm" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
+      </div>
+
+      {isLoading && <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>}
+
+      {data && (
+        <>
+          {data.note && (
+            <Card><CardContent className="py-4 text-sm text-muted-foreground">{data.note}</CardContent></Card>
+          )}
+
+          {!data.reconciled && (
+            <Card className="border-red-300 bg-red-50">
+              <CardContent className="flex items-start gap-2 py-3 text-sm text-red-700">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  The sections do not fully explain the movement in cash
+                  ({naira(data.unexplained ?? 0)} unaccounted for). Treat these figures as provisional.
+                </span>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { label: "Opening Cash", value: data.openingCash, color: "text-slate-700" },
+              { label: "Net Change",   value: data.netChange,   color: Number(data.netChange) >= 0 ? "text-emerald-600" : "text-red-600" },
+              { label: "Closing Cash", value: data.closingCash, color: "text-slate-900" },
+            ].map((s) => (
+              <Card key={s.label}>
+                <CardContent className="pt-4 pb-3">
+                  <p className="text-xs text-muted-foreground">{s.label}</p>
+                  <p className={`text-lg font-semibold ${s.color}`}>{naira(s.value)}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {SECTIONS.map(({ key, label, hint }) => {
+            const section = data.sections[key];
+            return (
+              <Card key={key}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <div>
+                    <CardTitle className="text-sm font-medium">{label}</CardTitle>
+                    <p className="text-xs text-muted-foreground">{hint}</p>
+                  </div>
+                  <span className={`font-mono text-sm font-semibold ${Number(section.total) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                    {naira(section.total)}
+                  </span>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {section.lines.length === 0 ? (
+                    <p className="py-2 text-sm text-muted-foreground">No activity in this period.</p>
+                  ) : (
+                    <Table>
+                      <TableBody>
+                        {section.lines.map((l) => (
+                          <TableRow key={l.code}>
+                            <TableCell className="w-20 font-mono text-xs">{l.code}</TableCell>
+                            <TableCell className="text-sm">{l.name}</TableCell>
+                            <TableCell className={`text-right font-mono text-sm ${Number(l.amount) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                              {naira(l.amount)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </>
+      )}
+    </div>
+  );
+}
+
 interface Currency { code: string; name: string; symbol: string; isActive: boolean }
 interface ExchangeRate { id: string; currencyCode: string; rateToBase: string; effectiveDate: string; source: string; currency: { name: string; symbol: string } }
 
@@ -480,6 +594,7 @@ export function AccountingPage() {
             <TabsTrigger value="trial">Trial Balance</TabsTrigger>
             <TabsTrigger value="pl">Profit &amp; Loss</TabsTrigger>
             <TabsTrigger value="bs">Balance Sheet</TabsTrigger>
+            <TabsTrigger value="cf">Cash Flow</TabsTrigger>
             <TabsTrigger value="ar">Receivables</TabsTrigger>
             <TabsTrigger value="ap">Payables</TabsTrigger>
             <TabsTrigger value="fx"><DollarSign className="mr-1 h-3 w-3" />FX Rates</TabsTrigger>
@@ -487,6 +602,7 @@ export function AccountingPage() {
           <TabsContent value="trial" className="mt-4"><TrialBalance /></TabsContent>
           <TabsContent value="pl" className="mt-4"><ProfitAndLoss /></TabsContent>
           <TabsContent value="bs" className="mt-4"><BalanceSheet /></TabsContent>
+          <TabsContent value="cf" className="mt-4"><CashFlow /></TabsContent>
           <TabsContent value="ar" className="mt-4"><Ageing kind="AR" /></TabsContent>
           <TabsContent value="ap" className="mt-4"><Ageing kind="AP" /></TabsContent>
           <TabsContent value="fx" className="mt-4"><FxRatesTab /></TabsContent>

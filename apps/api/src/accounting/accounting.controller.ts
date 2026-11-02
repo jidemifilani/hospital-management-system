@@ -106,6 +106,21 @@ export class AccountingController {
     );
   }
 
+  @Get("cash-flow")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_READ)
+  cashFlow(
+    @CurrentUser() user: JwtPayload,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+  ) {
+    const now = new Date();
+    return this.accounting.cashFlow(
+      user.organizationId!,
+      parseDate(from, new Date(now.getFullYear(), now.getMonth(), 1)),
+      parseDate(to, now),
+    );
+  }
+
   @Get("balance-sheet")
   @RequirePermissions(PERMISSIONS.ACCOUNTING_READ)
   balanceSheet(@CurrentUser() user: JwtPayload, @Query("asOf") asOf?: string) {

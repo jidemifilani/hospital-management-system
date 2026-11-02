@@ -1,7 +1,5 @@
 import { IsString, IsNotEmpty, IsEnum, IsArray, IsEmail, IsOptional, IsBoolean, MaxLength } from "class-validator";
-
-const REPORT_TYPES = ["BILLING_SUMMARY","INVENTORY_VALUATION","LOW_STOCK","PAYROLL_SUMMARY","PROCUREMENT_SUMMARY","PATIENT_ADMISSIONS"] as const;
-const FREQUENCIES  = ["DAILY","WEEKLY","MONTHLY"] as const;
+import { ScheduledReportType, ScheduledReportFrequency } from "@prisma/client";
 
 export class CreateScheduledReportDto {
   @IsString()
@@ -9,11 +7,11 @@ export class CreateScheduledReportDto {
   @MaxLength(120)
   name: string;
 
-  @IsEnum(REPORT_TYPES)
-  type: string;
+  @IsEnum(ScheduledReportType)
+  type: ScheduledReportType;
 
-  @IsEnum(FREQUENCIES)
-  frequency: string;
+  @IsEnum(ScheduledReportFrequency)
+  frequency: ScheduledReportFrequency;
 
   @IsArray()
   @IsEmail({}, { each: true })
@@ -26,13 +24,13 @@ export class UpdateScheduledReportDto {
   @MaxLength(120)
   name?: string;
 
-  @IsEnum(REPORT_TYPES)
+  @IsEnum(ScheduledReportType)
   @IsOptional()
-  type?: string;
+  type?: ScheduledReportType;
 
-  @IsEnum(FREQUENCIES)
+  @IsEnum(ScheduledReportFrequency)
   @IsOptional()
-  frequency?: string;
+  frequency?: ScheduledReportFrequency;
 
   @IsArray()
   @IsEmail({}, { each: true })

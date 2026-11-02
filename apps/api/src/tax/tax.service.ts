@@ -46,7 +46,7 @@ export class TaxService {
         code: dto.code.toUpperCase(),
         name: dto.name,
         rate: new Decimal(dto.rate),
-        type: (dto.type ?? "OUTPUT_VAT") as any,
+        type: dto.type ?? "OUTPUT_VAT",
         organizationId: orgId,
       },
     });

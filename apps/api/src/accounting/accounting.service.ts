@@ -3,6 +3,7 @@ import { AccountType, JournalSource, Prisma } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { customAlphabet } from "nanoid";
 import { PrismaService } from "../prisma/prisma.service";
+import { ACCOUNTS } from "./chart-of-accounts";
 
 const genEntryNo = customAlphabet("0123456789", 8);
 
@@ -10,6 +11,22 @@ const ZERO = new Decimal(0);
 
 /** Accounts whose balance rises with a debit. */
 const DEBIT_NORMAL: AccountType[] = ["ASSET", "EXPENSE"];
+
+type CashFlowSection = "operating" | "investing" | "financing";
+
+/** Fixed-asset account codes: buying or selling these is an investing flow. */
+const INVESTING_CODE_PREFIXES = ["14"];
+
+/**
+ * Which section of the cash flow statement a counterpart account belongs to.
+ * Equity movements (capital introduced, dividends) are financing; fixed assets
+ * are investing; working capital, revenue and expenses are all operating.
+ */
+function classifyCashFlow(code: string, type: AccountType): CashFlowSection {
+  if (INVESTING_CODE_PREFIXES.some((p) => code.startsWith(p))) return "investing";
+  if (type === "EQUITY") return "financing";
+  return "operating";
+}
 
 export interface PostLine {
   accountCode: string;
@@ -752,6 +769,151 @@ export class AccountingService {
       unreconciledCreditTotal: unreconciledCredits.reduce((s, l) => s.add(l.amount), new Decimal(0)).toString(),
       unreconciledDebitTotal:  unreconciledDebits.reduce((s, l) => s.add(l.amount), new Decimal(0)).toString(),
     };
+  }
+
+  // ── Cash flow statement ─────────────────────────────────────────────────────
+
+  /**
+   * Direct-method cash flow statement derived from GL movements.
+   *
+   * Every journal entry that touches a cash account is decomposed: the cash
+   * lines give the net cash movement, and each non-cash line in the same entry
+   * is the counterpart that explains it. Because an entry is balanced, a
+   * counterpart line's negated net movement IS its exact contribution to cash —
+   * no apportionment or estimation is involved, even when one entry spans
+   * several sections.
+   *
+   * Entries that only move cash between cash accounts (bank to petty cash) net
+   * to zero and so drop out on their own.
+   */
+  async cashFlow(organizationId: string, from: Date, to: Date) {
+    const cashAccountIds = await this.cashAccountIds(organizationId);
+    if (cashAccountIds.length === 0) {
+      return {
+        from: from.toISOString().split("T")[0],
+        to: to.toISOString().split("T")[0],
+        openingCash: "0", closingCash: "0",
+        sections: { operating: { total: "0", lines: [] }, investing: { total: "0", lines: [] }, financing: { total: "0", lines: [] } },
+        netChange: "0",
+        reconciled: true,
+        note: "No cash or bank accounts found in the chart of accounts.",
+      };
+    }
+
+    const openingCash = await this.cashBalanceBefore(organizationId, cashAccountIds, from);
+
+    const entries = await this.prisma.journalEntry.findMany({
+      where: {
+        organizationId,
+        status: { not: "DRAFT" },
+        entryDate: { gte: from, lte: to },
+        lines: { some: { accountId: { in: cashAccountIds } } },
+      },
+      select: {
+        lines: {
+          select: {
+            accountId: true,
+            debit: true,
+            credit: true,
+            account: { select: { code: true, name: true, type: true } },
+          },
+        },
+      },
+    });
+
+    const cashSet = new Set(cashAccountIds);
+    // section → accountCode → { name, amount }
+    const buckets: Record<CashFlowSection, Map<string, { name: string; amount: Decimal }>> = {
+      operating: new Map(),
+      investing: new Map(),
+      financing: new Map(),
+    };
+    let netChange = ZERO;
+
+    for (const entry of entries) {
+      const cashDelta = entry.lines
+        .filter((l) => cashSet.has(l.accountId))
+        .reduce((acc, l) => acc.add(l.debit).sub(l.credit), ZERO);
+
+      if (cashDelta.isZero()) continue; // cash-to-cash transfer
+
+      netChange = netChange.add(cashDelta);
+
+      for (const line of entry.lines) {
+        if (cashSet.has(line.accountId)) continue;
+        // The entry balances, so the counterpart's negated movement is the
+        // cash it accounts for.
+        const contribution = new Decimal(line.credit).sub(line.debit);
+        if (contribution.isZero()) continue;
+
+        const section = classifyCashFlow(line.account.code, line.account.type);
+        const bucket = buckets[section];
+        const existing = bucket.get(line.account.code);
+        if (existing) existing.amount = existing.amount.add(contribution);
+        else bucket.set(line.account.code, { name: line.account.name, amount: contribution });
+      }
+    }
+
+    const buildSection = (section: CashFlowSection) => {
+      const lines = [...buckets[section].entries()]
+        .map(([code, v]) => ({ code, name: v.name, amount: v.amount.toString() }))
+        .filter((l) => !new Decimal(l.amount).isZero())
+        .sort((a, b) => a.code.localeCompare(b.code));
+      const total = lines.reduce((acc, l) => acc.add(l.amount), ZERO);
+      return { total: total.toString(), lines };
+    };
+
+    const operating = buildSection("operating");
+    const investing = buildSection("investing");
+    const financing = buildSection("financing");
+
+    const sectionSum = new Decimal(operating.total)
+      .add(investing.total)
+      .add(financing.total);
+    const closingCash = openingCash.add(netChange);
+
+    return {
+      from: from.toISOString().split("T")[0],
+      to: to.toISOString().split("T")[0],
+      openingCash: openingCash.toString(),
+      closingCash: closingCash.toString(),
+      sections: { operating, investing, financing },
+      netChange: netChange.toString(),
+      // The three sections must explain the whole movement in cash. If this is
+      // ever false the statement is not trustworthy and says so rather than
+      // quietly presenting numbers that do not add up.
+      reconciled: sectionSum.equals(netChange),
+      unexplained: sectionSum.sub(netChange).toString(),
+    };
+  }
+
+  /** Cash on hand + bank control accounts + every GL account behind a bank account. */
+  private async cashAccountIds(organizationId: string): Promise<string[]> {
+    const [byCode, bankAccounts] = await Promise.all([
+      this.prisma.account.findMany({
+        where: { organizationId, code: { in: [ACCOUNTS.CASH_ON_HAND, ACCOUNTS.BANK] } },
+        select: { id: true },
+      }),
+      this.prisma.bankAccount.findMany({
+        where: { organizationId },
+        select: { glAccountId: true },
+      }),
+    ]);
+
+    return [...new Set([...byCode.map((a) => a.id), ...bankAccounts.map((b) => b.glAccountId)])];
+  }
+
+  private async cashBalanceBefore(organizationId: string, cashAccountIds: string[], before: Date) {
+    const agg = await this.prisma.journalLine.aggregate({
+      where: {
+        organizationId,
+        accountId: { in: cashAccountIds },
+        journalEntry: { status: { not: "DRAFT" }, entryDate: { lt: before } },
+      },
+      _sum: { debit: true, credit: true },
+    });
+    return new Decimal(agg._sum.debit?.toString() ?? "0")
+      .sub(new Decimal(agg._sum.credit?.toString() ?? "0"));
   }
 
   // ── Multi-currency ──────────────────────────────────────────────────────────

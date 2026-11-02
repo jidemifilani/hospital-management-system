@@ -3,9 +3,7 @@ import { Cron } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
 import { MailService } from "./mail.service";
 import { Decimal } from "@prisma/client/runtime/library";
-
-type ScheduledReportType = "BILLING_SUMMARY" | "INVENTORY_VALUATION" | "LOW_STOCK" | "PAYROLL_SUMMARY" | "PROCUREMENT_SUMMARY" | "PATIENT_ADMISSIONS";
-type ScheduledReportFrequency = "DAILY" | "WEEKLY" | "MONTHLY";
+import type { ScheduledReportType, ScheduledReportFrequency } from "@prisma/client";
 
 const TYPE_LABELS: Record<string, string> = {
   BILLING_SUMMARY:     "Billing Summary",
@@ -19,7 +17,7 @@ const TYPE_LABELS: Record<string, string> = {
 const fmtN = (v: Decimal | number | string) =>
   `₦${Number(v).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-function nextRunDate(freq: string): Date {
+function nextRunDate(freq: ScheduledReportFrequency): Date {
   const d = new Date();
   if (freq === "DAILY")   d.setDate(d.getDate() + 1);
   if (freq === "WEEKLY")  d.setDate(d.getDate() + 7);
@@ -47,7 +45,7 @@ export class ReportsService {
   }
 
   async createScheduled(
-    dto: { name: string; type: string; frequency: string; recipients: string[] },
+    dto: { name: string; type: ScheduledReportType; frequency: ScheduledReportFrequency; recipients: string[] },
     organizationId: string,
   ) {
     return this.prisma.scheduledReport.create({
@@ -64,7 +62,7 @@ export class ReportsService {
 
   async updateScheduled(
     id: string,
-    dto: Partial<{ name: string; type: string; frequency: string; recipients: string[]; isActive: boolean }>,
+    dto: Partial<{ name: string; type: ScheduledReportType; frequency: ScheduledReportFrequency; recipients: string[]; isActive: boolean }>,
     organizationId: string,
   ) {
     const r = await this.prisma.scheduledReport.findFirst({ where: { id, organizationId } });

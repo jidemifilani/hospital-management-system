@@ -81,8 +81,11 @@ export class BudgetService {
       by: ["accountId"],
       where: {
         organizationId: orgId,
+        // Not "POSTED": a reversed entry keeps its lines and its reversal
+        // cancels them out. Filtering to POSTED alone would count the
+        // reversal without the original it undoes.
         journalEntry: {
-          status: "POSTED",
+          status: { not: "DRAFT" },
           entryDate: { gte: periodStart, lt: periodEnd },
         },
       },
