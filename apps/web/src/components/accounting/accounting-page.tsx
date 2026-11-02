@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Loader2, Scale, CheckCircle2, AlertTriangle } from "lucide-react";
+import { BookOpen, Loader2, Scale, CheckCircle2, AlertTriangle, DollarSign, Plus, Trash2, Pencil } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -295,6 +297,124 @@ function Ageing({ kind }: { kind: "AR" | "AP" }) {
   );
 }
 
+interface Currency { code: string; name: string; symbol: string; isActive: boolean }
+interface ExchangeRate { id: string; currencyCode: string; rateToBase: string; effectiveDate: string; source: string; currency: { name: string; symbol: string } }
+
+function FxRatesTab() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ currencyCode: "", rateToBase: "", effectiveDate: new Date().toISOString().split("T")[0] });
+
+  const { data: currencies = [], isLoading: loadingCurr } = useQuery<Currency[]>({
+    queryKey: ["currencies"],
+    queryFn: async () => (await api.get("/accounting/currencies")).data,
+  });
+  const { data: rates = [], isLoading: loadingRates } = useQuery<ExchangeRate[]>({
+    queryKey: ["fx-rates"],
+    queryFn: async () => (await api.get("/accounting/exchange-rates")).data,
+  });
+
+  const addRate = useMutation({
+    mutationFn: (d: typeof form) => api.post("/accounting/exchange-rates", { ...d, rateToBase: parseFloat(d.rateToBase) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fx-rates"] }); setOpen(false); toast({ title: "Rate saved" }); },
+    onError: () => toast({ title: "Failed to save rate", variant: "destructive" }),
+  });
+
+  const delRate = useMutation({
+    mutationFn: (id: string) => api.delete(`/accounting/exchange-rates/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["fx-rates"] }),
+    onError: () => toast({ title: "Failed to delete rate", variant: "destructive" }),
+  });
+
+  const activeCurrencies = currencies.filter((c) => c.isActive && c.code !== "NGN");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">Exchange rates against the organisation base currency. Most recent rate per currency is used for conversions.</p>
+        <Button size="sm" onClick={() => setOpen(true)}><Plus className="mr-1 h-4 w-4" />Add Rate</Button>
+      </div>
+
+      {(loadingCurr || loadingRates) ? (
+        <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Currency</TableHead>
+                  <TableHead>Code</TableHead>
+                  <TableHead className="text-right">Rate to Base (NGN)</TableHead>
+                  <TableHead>Effective Date</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rates.length === 0 && (
+                  <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">No rates recorded yet.</TableCell></TableRow>
+                )}
+                {rates.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="text-sm">{r.currency.name}</TableCell>
+                    <TableCell><Badge variant="outline">{r.currencyCode}</Badge></TableCell>
+                    <TableCell className="text-right font-mono text-sm">{Number(r.rateToBase).toFixed(4)}</TableCell>
+                    <TableCell className="text-sm">{r.effectiveDate.split("T")[0]}</TableCell>
+                    <TableCell><Badge variant={r.source === "MANUAL" ? "secondary" : "default"}>{r.source}</Badge></TableCell>
+                    <TableCell className="text-right">
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => delRate.mutate(r.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Add Exchange Rate</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Currency</Label>
+              <Select value={form.currencyCode} onValueChange={(v) => setForm((p) => ({ ...p, currencyCode: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select currency…" /></SelectTrigger>
+                <SelectContent>
+                  {activeCurrencies.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>{c.symbol} {c.name} ({c.code})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Rate to Base (1 {form.currencyCode || "foreign"} = ? NGN)</Label>
+              <Input type="number" step="0.0001" min="0" value={form.rateToBase}
+                onChange={(e) => setForm((p) => ({ ...p, rateToBase: e.target.value }))} placeholder="e.g. 1650" />
+            </div>
+            <div>
+              <Label>Effective Date</Label>
+              <Input type="date" value={form.effectiveDate}
+                onChange={(e) => setForm((p) => ({ ...p, effectiveDate: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button disabled={!form.currencyCode || !form.rateToBase || addRate.isPending}
+              onClick={() => addRate.mutate(form)}>
+              {addRate.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export function AccountingPage() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -362,12 +482,14 @@ export function AccountingPage() {
             <TabsTrigger value="bs">Balance Sheet</TabsTrigger>
             <TabsTrigger value="ar">Receivables</TabsTrigger>
             <TabsTrigger value="ap">Payables</TabsTrigger>
+            <TabsTrigger value="fx"><DollarSign className="mr-1 h-3 w-3" />FX Rates</TabsTrigger>
           </TabsList>
           <TabsContent value="trial" className="mt-4"><TrialBalance /></TabsContent>
           <TabsContent value="pl" className="mt-4"><ProfitAndLoss /></TabsContent>
           <TabsContent value="bs" className="mt-4"><BalanceSheet /></TabsContent>
           <TabsContent value="ar" className="mt-4"><Ageing kind="AR" /></TabsContent>
           <TabsContent value="ap" className="mt-4"><Ageing kind="AP" /></TabsContent>
+          <TabsContent value="fx" className="mt-4"><FxRatesTab /></TabsContent>
         </Tabs>
       )}
     </div>

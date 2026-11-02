@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from "@nestjs/common";
 import { AccountingService } from "./accounting.service";
 import {
   CreateAccountDto, PostJournalEntryDto,
   CreateBankAccountDto, ImportStatementDto, MatchLineDto,
+  CreateCurrencyDto, UpdateCurrencyDto, SetExchangeRateDto, UpdateBaseCurrencyDto,
 } from "./dto/accounting.dto";
 import { ChartSeeder } from "./chart.seeder";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
@@ -195,5 +196,58 @@ export class AccountingController {
     @Query("asOf") asOf?: string,
   ) {
     return this.accounting.reconciliationReport(id, user.organizationId!, parseDate(asOf, new Date()));
+  }
+
+  // ── Currencies ──────────────────────────────────────────────────────────────
+
+  @Get("currencies")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_READ)
+  listCurrencies() {
+    return this.accounting.listCurrencies();
+  }
+
+  @Post("currencies")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_MANAGE)
+  createCurrency(@Body() dto: CreateCurrencyDto) {
+    return this.accounting.createCurrency(dto);
+  }
+
+  @Patch("currencies/:code")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_MANAGE)
+  updateCurrency(@Param("code") code: string, @Body() dto: UpdateCurrencyDto) {
+    return this.accounting.updateCurrency(code, dto);
+  }
+
+  // ── Exchange rates ──────────────────────────────────────────────────────────
+
+  @Get("exchange-rates")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_READ)
+  listRates(@CurrentUser() user: JwtPayload, @Query("currency") currency?: string) {
+    return this.accounting.listExchangeRates(user.organizationId!, currency);
+  }
+
+  @Get("exchange-rates/latest")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_READ)
+  latestRates(@CurrentUser() user: JwtPayload) {
+    return this.accounting.latestRates(user.organizationId!);
+  }
+
+  @Post("exchange-rates")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_MANAGE)
+  setRate(@Body() dto: SetExchangeRateDto, @CurrentUser() user: JwtPayload) {
+    return this.accounting.setExchangeRate(user.organizationId!, dto);
+  }
+
+  @Delete("exchange-rates/:id")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_MANAGE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteRate(@Param("id") id: string, @CurrentUser() user: JwtPayload) {
+    return this.accounting.deleteExchangeRate(id, user.organizationId!);
+  }
+
+  @Patch("base-currency")
+  @RequirePermissions(PERMISSIONS.ACCOUNTING_MANAGE)
+  setBaseCurrency(@Body() dto: UpdateBaseCurrencyDto, @CurrentUser() user: JwtPayload) {
+    return this.accounting.updateBaseCurrency(user.organizationId!, dto.baseCurrencyCode);
   }
 }

@@ -753,4 +753,101 @@ export class AccountingService {
       unreconciledDebitTotal:  unreconciledDebits.reduce((s, l) => s.add(l.amount), new Decimal(0)).toString(),
     };
   }
+
+  // ── Multi-currency ──────────────────────────────────────────────────────────
+
+  listCurrencies() {
+    return this.prisma.currency.findMany({ orderBy: { code: "asc" } });
+  }
+
+  createCurrency(data: { code: string; name: string; symbol: string }) {
+    return this.prisma.currency.create({ data: { ...data, code: data.code.toUpperCase() } });
+  }
+
+  updateCurrency(code: string, data: { name?: string; symbol?: string; isActive?: boolean }) {
+    return this.prisma.currency.update({ where: { code: code.toUpperCase() }, data });
+  }
+
+  listExchangeRates(orgId: string, currencyCode?: string) {
+    return this.prisma.exchangeRate.findMany({
+      where: { organizationId: orgId, ...(currencyCode ? { currencyCode: currencyCode.toUpperCase() } : {}) },
+      orderBy: [{ effectiveDate: "desc" }, { currencyCode: "asc" }],
+      include: { currency: { select: { name: true, symbol: true } } },
+      take: 200,
+    });
+  }
+
+  async setExchangeRate(orgId: string, dto: { currencyCode: string; rateToBase: number; effectiveDate: string }) {
+    const code = dto.currencyCode.toUpperCase();
+    const date = new Date(dto.effectiveDate);
+    const existing = await this.prisma.exchangeRate.findFirst({
+      where: { organizationId: orgId, currencyCode: code, effectiveDate: date },
+    });
+    if (existing) {
+      return this.prisma.exchangeRate.update({
+        where: { id: existing.id },
+        data: { rateToBase: new Decimal(dto.rateToBase) },
+      });
+    }
+    return this.prisma.exchangeRate.create({
+      data: {
+        currencyCode: code,
+        rateToBase: new Decimal(dto.rateToBase),
+        effectiveDate: date,
+        source: "MANUAL",
+        organizationId: orgId,
+      },
+    });
+  }
+
+  deleteExchangeRate(id: string, orgId: string) {
+    return this.prisma.exchangeRate.deleteMany({ where: { id, organizationId: orgId } });
+  }
+
+  async latestRates(orgId: string) {
+    const rates = await this.prisma.exchangeRate.findMany({
+      where: { organizationId: orgId },
+      orderBy: { effectiveDate: "desc" },
+      include: { currency: { select: { name: true, symbol: true } } },
+    });
+    const seen = new Set<string>();
+    return rates.filter((r) => {
+      if (seen.has(r.currencyCode)) return false;
+      seen.add(r.currencyCode);
+      return true;
+    });
+  }
+
+  /** Convert amount from one currency to another using the nearest rate on or before `asOf`. */
+  async convert(amount: Decimal, fromCode: string, toCode: string, orgId: string, asOf = new Date()): Promise<Decimal> {
+    const from = fromCode.toUpperCase();
+    const to   = toCode.toUpperCase();
+    if (from === to) return amount;
+
+    const org = await this.prisma.organization.findUnique({ where: { id: orgId }, select: { baseCurrencyCode: true } });
+    const base = (org?.baseCurrencyCode ?? "NGN").toUpperCase();
+
+    const getRate = async (code: string): Promise<Decimal> => {
+      if (code === base) return new Decimal(1);
+      const row = await this.prisma.exchangeRate.findFirst({
+        where: { organizationId: orgId, currencyCode: code, effectiveDate: { lte: asOf } },
+        orderBy: { effectiveDate: "desc" },
+      });
+      if (!row) throw new BadRequestException(`No exchange rate found for ${code}`);
+      return new Decimal(row.rateToBase.toString());
+    };
+
+    const fromRate = await getRate(from);
+    const toRate   = await getRate(to);
+    // amount (from) -> base -> to
+    return amount.mul(fromRate).div(toRate);
+  }
+
+  async updateBaseCurrency(orgId: string, code: string) {
+    return this.prisma.organization.update({
+      where: { id: orgId },
+      data: { baseCurrencyCode: code.toUpperCase() },
+      select: { id: true, baseCurrencyCode: true },
+    });
+  }
 }

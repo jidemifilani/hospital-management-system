@@ -127,3 +127,25 @@ export class MatchLineDto {
   @IsString() @IsOptional() matchedPaymentId?: string;
   @IsString() @IsOptional() matchedEntryId?: string;
 }
+
+export class CreateCurrencyDto {
+  @IsString() @IsNotEmpty() @MaxLength(10) code: string;
+  @IsString() @IsNotEmpty() @MaxLength(120) name: string;
+  @IsString() @IsNotEmpty() @MaxLength(10) symbol: string;
+}
+
+export class UpdateCurrencyDto {
+  @IsString() @IsOptional() @MaxLength(120) name?: string;
+  @IsString() @IsOptional() @MaxLength(10) symbol?: string;
+  @IsOptional() isActive?: boolean;
+}
+
+export class SetExchangeRateDto {
+  @IsString() @IsNotEmpty() currencyCode: string;
+  @IsNumber() @Min(0.000001) rateToBase: number;
+  @IsDateString() effectiveDate: string;
+}
+
+export class UpdateBaseCurrencyDto {
+  @IsString() @IsNotEmpty() @MaxLength(10) baseCurrencyCode: string;
+}

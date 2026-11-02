@@ -251,6 +251,9 @@ model Organization {
   reorderRules             ReorderRule[]
   replenishmentSuggestions ReplenishmentSuggestion[]
   scheduledReports         ScheduledReport[]
+  exchangeRates            ExchangeRate[]
+
+  baseCurrencyCode String @default("NGN")
 
   @@map("organizations")
 }
@@ -4104,4 +4107,34 @@ model ScheduledReport {
 
   @@index([organizationId, isActive, nextRunAt])
   @@map("scheduled_reports")
+}
+
+/// ISO 4217 currency master — shared across all organisations.
+model Currency {
+  code      String  @id          // ISO 4217 e.g. "USD"
+  name      String               // e.g. "US Dollar"
+  symbol    String               // e.g. "$"
+  isActive  Boolean @default(true)
+
+  exchangeRates ExchangeRate[]
+
+  @@map("currencies")
+}
+
+/// Per-organisation, per-date exchange rate against the org's base currency.
+model ExchangeRate {
+  id             String   @id @default(cuid())
+  currencyCode   String
+  rateToBase     Decimal  @db.Decimal(18, 6) // 1 foreign unit = rateToBase base units
+  effectiveDate  DateTime @db.Date
+  source         String   @default("MANUAL")  // MANUAL | AUTO
+  organizationId String
+  createdAt      DateTime @default(now())
+
+  currency     Currency     @relation(fields: [currencyCode], references: [code])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([currencyCode, effectiveDate, organizationId])
+  @@index([organizationId, currencyCode, effectiveDate])
+  @@map("exchange_rates")
 }
