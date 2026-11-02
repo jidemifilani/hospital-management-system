@@ -255,6 +255,10 @@ model Organization {
 
   baseCurrencyCode String @default("NGN")
 
+  taxCodes         TaxCode[]
+  taxApplications  TaxApplication[]
+  taxReturns       TaxReturn[]
+
   @@map("organizations")
 }
 
@@ -4107,6 +4111,83 @@ model ScheduledReport {
 
   @@index([organizationId, isActive, nextRunAt])
   @@map("scheduled_reports")
+}
+
+// ── VAT / Tax management ────────────────────────────────────────────────────
+
+enum TaxCodeType {
+  OUTPUT_VAT
+  INPUT_VAT
+  WITHHOLDING
+  CUSTOM
+}
+
+enum TaxReturnStatus {
+  DRAFT
+  SUBMITTED
+  PAID
+}
+
+/// Tax codes (VAT 7.5%, WHT 5%, etc.) defined per organisation.
+model TaxCode {
+  id             String      @id @default(cuid())
+  code           String                        // e.g. "VAT75", "WHT5"
+  name           String                        // e.g. "VAT 7.5%"
+  rate           Decimal     @db.Decimal(6, 4) // e.g. 7.5000
+  type           TaxCodeType @default(OUTPUT_VAT)
+  isActive       Boolean     @default(true)
+  organizationId String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  organization  Organization   @relation(fields: [organizationId], references: [id])
+  applications  TaxApplication[]
+
+  @@unique([code, organizationId])
+  @@index([organizationId, isActive])
+  @@map("tax_codes")
+}
+
+/// Polymorphic record of tax applied to a document (INVOICE | SUPPLIER_INVOICE | PURCHASE_ORDER).
+model TaxApplication {
+  id             String   @id @default(cuid())
+  taxCodeId      String
+  referenceType  String   // "INVOICE" | "SUPPLIER_INVOICE" | "PURCHASE_ORDER"
+  referenceId    String
+  baseAmount     Decimal  @db.Decimal(12, 2)
+  taxAmount      Decimal  @db.Decimal(12, 2)
+  organizationId String
+  createdAt      DateTime @default(now())
+
+  taxCode      TaxCode      @relation(fields: [taxCodeId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, referenceType, referenceId])
+  @@index([organizationId, taxCodeId])
+  @@map("tax_applications")
+}
+
+/// Tax return for a month/year (VAT filing).
+model TaxReturn {
+  id             String          @id @default(cuid())
+  year           Int
+  month          Int             // 1–12
+  outputVat      Decimal         @default(0) @db.Decimal(12, 2)
+  inputVat       Decimal         @default(0) @db.Decimal(12, 2)
+  netVat         Decimal         @default(0) @db.Decimal(12, 2)
+  status         TaxReturnStatus @default(DRAFT)
+  dueDate        DateTime?
+  submittedAt    DateTime?
+  notes          String?
+  organizationId String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([year, month, organizationId])
+  @@index([organizationId, status])
+  @@map("tax_returns")
 }
 
 /// ISO 4217 currency master — shared across all organisations.

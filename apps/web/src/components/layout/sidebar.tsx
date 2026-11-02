@@ -60,6 +60,7 @@ import {
   BookOpen,
   ListTodo,
   Landmark,
+  Receipt,
 } from "lucide-react";
 
 const navItems = [
@@ -95,6 +96,7 @@ const navItems = [
   { href: "/documents",    icon: FolderOpen,      label: "Documents",    group: "admin", permission: PERMISSIONS.DOCUMENTS_READ },
   { href: "/accounting",             icon: BookOpen,   label: "Accounting",         group: "admin", permission: PERMISSIONS.ACCOUNTING_READ },
   { href: "/accounting/reconciliation", icon: Landmark, label: "Bank Reconciliation", group: "admin", permission: PERMISSIONS.ACCOUNTING_READ },
+  { href: "/tax",                    icon: Receipt,    label: "Tax",                group: "admin", permission: PERMISSIONS.ACCOUNTING_READ },
   { href: "/procurement",  icon: ShoppingCart,    label: "Procurement",  group: "admin", permission: PERMISSIONS.PROCUREMENT_READ },
   { href: "/assets",       icon: Boxes,           label: "Assets",       group: "admin", permission: PERMISSIONS.ASSETS_READ },
   { href: "/payroll",      icon: Wallet,          label: "Payroll",      group: "admin", permission: PERMISSIONS.PAYROLL_READ },
