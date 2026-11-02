@@ -62,6 +62,7 @@ import {
   Landmark,
   Receipt,
   TrendingUp,
+  FileText,
 } from "lucide-react";
 
 const navItems = [
@@ -100,6 +101,7 @@ const navItems = [
   { href: "/tax",                    icon: Receipt,    label: "Tax",                group: "admin", permission: PERMISSIONS.ACCOUNTING_READ },
   { href: "/budget",                 icon: TrendingUp, label: "Budget",              group: "admin", permission: PERMISSIONS.ACCOUNTING_READ },
   { href: "/procurement",  icon: ShoppingCart,    label: "Procurement",  group: "admin", permission: PERMISSIONS.PROCUREMENT_READ },
+  { href: "/rfq",          icon: FileText,        label: "RFQ",          group: "admin", permission: PERMISSIONS.PROCUREMENT_READ },
   { href: "/assets",       icon: Boxes,           label: "Assets",       group: "admin", permission: PERMISSIONS.ASSETS_READ },
   { href: "/payroll",      icon: Wallet,          label: "Payroll",      group: "admin", permission: PERMISSIONS.PAYROLL_READ },
   { href: "/appraisals",   icon: Target,          label: "Appraisals",   group: "admin", permission: PERMISSIONS.APPRAISALS_READ },

@@ -259,6 +259,8 @@ model Organization {
   taxApplications  TaxApplication[]
   taxReturns       TaxReturn[]
   budgets          Budget[]
+  rfqs             Rfq[]
+  rfqQuotes        RfqQuote[]
 
   @@map("organizations")
 }
@@ -394,6 +396,7 @@ model Staff {
   surgeriesAsAssistant     TheatreBooking[]  @relation("AssistantSurgeonBookings")
   carePlansAsNurse         CarePlan[]        @relation("NurseCarePlans")
   purchaseOrdersCreated    PurchaseOrder[]   @relation("POCreatedBy")
+  rfqsCreated              Rfq[]             @relation("RfqCreatedBy")
   dietOrders               DietOrder[]       @relation("DietOrderedBy")
   triageRecords            TriageRecord[]    @relation("TriageNurse")
   payrolls                 Payroll[]
@@ -1869,6 +1872,7 @@ model PurchaseOrder {
   supplierInvoices SupplierInvoice[]
   createdBy        Staff?        @relation("POCreatedBy", fields: [createdById], references: [id])
   organization     Organization  @relation(fields: [organizationId], references: [id])
+  rfq              Rfq?
 
   @@index([organizationId, status])
   @@map("purchase_orders")
@@ -4190,6 +4194,114 @@ model TaxReturn {
   @@unique([year, month, organizationId])
   @@index([organizationId, status])
   @@map("tax_returns")
+}
+
+// ── Vendor RFQ workflow ──────────────────────────────────────────────────────
+
+enum RfqStatus {
+  DRAFT
+  SENT
+  CLOSED
+  AWARDED
+  CANCELLED
+}
+
+enum RfqQuoteStatus {
+  PENDING   // vendor invited, no response yet
+  RECEIVED  // vendor submitted pricing
+  DECLINED  // vendor declined to quote
+  AWARDED   // this quote won
+  REJECTED  // not selected
+}
+
+/// A request for quotation issued to several vendors, awarded to one.
+model Rfq {
+  id              String    @id @default(cuid())
+  rfqNumber       String    @unique
+  title           String
+  description     String?
+  status          RfqStatus @default(DRAFT)
+  /// Deadline for vendors to submit their quotes.
+  dueDate         DateTime?
+  sentAt          DateTime?
+  closedAt        DateTime?
+  awardedAt       DateTime?
+  awardedQuoteId  String?   @unique
+  purchaseOrderId String?   @unique
+  notes           String?
+  createdById     String?
+  organizationId  String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  items         RfqItem[]
+  quotes        RfqQuote[]
+  createdBy     Staff?         @relation("RfqCreatedBy", fields: [createdById], references: [id])
+  organization  Organization   @relation(fields: [organizationId], references: [id])
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+
+  @@index([organizationId, status])
+  @@map("rfqs")
+}
+
+/// A line item the RFQ asks vendors to price.
+model RfqItem {
+  id            String  @id @default(cuid())
+  rfqId         String
+  itemName      String
+  category      String?
+  unit          String?
+  quantity      Int
+  specification String?
+  sortOrder     Int     @default(0)
+
+  rfq        Rfq            @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  quoteLines RfqQuoteLine[]
+
+  @@index([rfqId])
+  @@map("rfq_items")
+}
+
+/// One vendor's slot on an RFQ. Created on invitation (PENDING) and filled in
+/// when that vendor responds, so an unanswered invitation stays visible.
+model RfqQuote {
+  id             String         @id @default(cuid())
+  rfqId          String
+  vendorName     String
+  vendorContact  String?
+  vendorEmail    String?
+  status         RfqQuoteStatus @default(PENDING)
+  totalAmount    Decimal        @default(0) @db.Decimal(12, 2)
+  leadTimeDays   Int?
+  validUntil     DateTime?
+  notes          String?
+  invitedAt      DateTime       @default(now())
+  respondedAt    DateTime?
+  organizationId String
+
+  rfq          Rfq            @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  organization Organization   @relation(fields: [organizationId], references: [id])
+  lines        RfqQuoteLine[]
+
+  @@index([rfqId, status])
+  @@map("rfq_quotes")
+}
+
+model RfqQuoteLine {
+  id         String  @id @default(cuid())
+  rfqQuoteId String
+  rfqItemId  String
+  unitPrice  Decimal @db.Decimal(12, 2)
+  quantity   Int
+  totalPrice Decimal @db.Decimal(12, 2)
+  notes      String?
+
+  quote   RfqQuote @relation(fields: [rfqQuoteId], references: [id], onDelete: Cascade)
+  rfqItem RfqItem  @relation(fields: [rfqItemId], references: [id], onDelete: Cascade)
+
+  @@unique([rfqQuoteId, rfqItemId])
+  @@index([rfqItemId])
+  @@map("rfq_quote_lines")
 }
 
 // ── Budget vs Actuals ────────────────────────────────────────────────────────
