@@ -1,17 +1,249 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, Users, CalendarCheck, Banknote, Loader2, BookOpen } from "lucide-react";
+import { TrendingUp, Users, CalendarCheck, Banknote, Loader2, BookOpen, Mail, Plus, Play, Pencil, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency } from "@/lib/utils";
+
+const REPORT_TYPES = [
+  { value: "BILLING_SUMMARY",     label: "Billing Summary" },
+  { value: "INVENTORY_VALUATION", label: "Inventory Valuation" },
+  { value: "LOW_STOCK",           label: "Low Stock Alert" },
+  { value: "PAYROLL_SUMMARY",     label: "Payroll Summary" },
+  { value: "PROCUREMENT_SUMMARY", label: "Procurement Summary" },
+  { value: "PATIENT_ADMISSIONS",  label: "Patient Admissions" },
+];
+
+const FREQ_LABELS: Record<string, string> = { DAILY: "Daily", WEEKLY: "Weekly", MONTHLY: "Monthly" };
+
+interface ScheduledReport {
+  id: string;
+  name: string;
+  type: string;
+  frequency: string;
+  recipients: string[];
+  isActive: boolean;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+}
+
+function ScheduledReportsTab() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<ScheduledReport | null>(null);
+  const [form, setForm] = useState({ name: "", type: "BILLING_SUMMARY", frequency: "WEEKLY", recipientsRaw: "" });
+
+  const { data: reports = [], isLoading } = useQuery<ScheduledReport[]>({
+    queryKey: ["scheduled-reports"],
+    queryFn: async () => (await api.get("/reports/scheduled")).data,
+  });
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm({ name: "", type: "BILLING_SUMMARY", frequency: "WEEKLY", recipientsRaw: "" });
+    setShowForm(true);
+  };
+
+  const openEdit = (r: ScheduledReport) => {
+    setEditing(r);
+    setForm({ name: r.name, type: r.type, frequency: r.frequency, recipientsRaw: r.recipients.join(", ") });
+    setShowForm(true);
+  };
+
+  const save = useMutation({
+    mutationFn: () => {
+      const recipients = form.recipientsRaw.split(/[,\n]+/).map((e) => e.trim()).filter(Boolean);
+      const payload = { name: form.name, type: form.type, frequency: form.frequency, recipients };
+      if (editing) return api.patch(`/reports/scheduled/${editing.id}`, payload);
+      return api.post("/reports/scheduled", payload);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["scheduled-reports"] });
+      toast({ title: editing ? "Report updated" : "Report scheduled" });
+      setShowForm(false);
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const toggle = useMutation({
+    mutationFn: (r: ScheduledReport) => api.patch(`/reports/scheduled/${r.id}`, { isActive: !r.isActive }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["scheduled-reports"] }),
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const del = useMutation({
+    mutationFn: (id: string) => api.delete(`/reports/scheduled/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["scheduled-reports"] });
+      toast({ title: "Report deleted" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const runNow = useMutation({
+    mutationFn: (id: string) => api.post(`/reports/scheduled/${id}/run-now`),
+    onSuccess: (r: any) => {
+      qc.invalidateQueries({ queryKey: ["scheduled-reports"] });
+      toast({ title: r.data.sent ? "Report sent" : "Report generated (email not configured)" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const valid = form.name.trim() && form.recipientsRaw.trim();
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Automated reports sent by email on a recurring schedule.
+        </p>
+        <Button size="sm" onClick={openCreate}><Plus className="mr-1 h-3.5 w-3.5" /> New Schedule</Button>
+      </div>
+
+      <Card>
+        <CardContent className="pt-4">
+          {isLoading ? (
+            <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" /></div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Frequency</TableHead>
+                  <TableHead>Recipients</TableHead>
+                  <TableHead>Last run</TableHead>
+                  <TableHead>Next run</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {reports.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-12 text-center text-sm text-muted-foreground">
+                      No scheduled reports yet. Create one to start receiving automated email summaries.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {reports.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium text-sm">{r.name}</TableCell>
+                    <TableCell className="text-xs">{REPORT_TYPES.find((t) => t.value === r.type)?.label ?? r.type}</TableCell>
+                    <TableCell className="text-sm">{FREQ_LABELS[r.frequency] ?? r.frequency}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{r.recipients.slice(0, 2).join(", ")}{r.recipients.length > 2 ? ` +${r.recipients.length - 2}` : ""}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {r.lastRunAt ? new Date(r.lastRunAt).toLocaleString("en-NG", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {r.nextRunAt ? new Date(r.nextRunAt).toLocaleString("en-NG", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={r.isActive ? "default" : "secondary"} className="text-[10px]">
+                        {r.isActive ? "Active" : "Paused"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" title="Run now"
+                          disabled={runNow.isPending} onClick={() => runNow.mutate(r.id)}>
+                          <Play className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" title={r.isActive ? "Pause" : "Resume"}
+                          onClick={() => toggle.mutate(r)}>
+                          {r.isActive ? <ToggleRight className="h-3.5 w-3.5 text-green-600" /> : <ToggleLeft className="h-3.5 w-3.5 text-muted-foreground" />}
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(r)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => del.mutate(r.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {showForm && (
+        <Dialog open onOpenChange={() => setShowForm(false)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />{editing ? "Edit Scheduled Report" : "New Scheduled Report"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label>Name *</Label>
+                <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Weekly Billing Summary" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label>Report type *</Label>
+                  <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {REPORT_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Frequency *</Label>
+                  <Select value={form.frequency} onValueChange={(v) => setForm((f) => ({ ...f, frequency: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DAILY">Daily (07:00)</SelectItem>
+                      <SelectItem value="WEEKLY">Weekly (Mon 07:00)</SelectItem>
+                      <SelectItem value="MONTHLY">Monthly (1st 07:00)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Recipients * <span className="text-xs text-muted-foreground">(comma- or line-separated emails)</span></Label>
+                <textarea
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                  rows={3}
+                  value={form.recipientsRaw}
+                  onChange={(e) => setForm((f) => ({ ...f, recipientsRaw: e.target.value }))}
+                  placeholder="admin@hospital.ng, finance@hospital.ng"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button disabled={!valid || save.isPending} onClick={() => save.mutate()}>
+                {save.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {editing ? "Save changes" : "Schedule report"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+}
 
 interface MonthData {
   label: string;
@@ -116,6 +348,10 @@ export function ReportsPage() {
           <TabsTrigger value="financials">
             <BookOpen className="mr-1 h-3.5 w-3.5 inline" />
             Financial Statements
+          </TabsTrigger>
+          <TabsTrigger value="scheduled">
+            <Mail className="mr-1 h-3.5 w-3.5 inline" />
+            Scheduled
           </TabsTrigger>
         </TabsList>
 
@@ -387,6 +623,10 @@ export function ReportsPage() {
           </div>
         </>
       )}
+        </TabsContent>
+
+        <TabsContent value="scheduled" className="mt-6">
+          <ScheduledReportsTab />
         </TabsContent>
       </Tabs>
     </div>

@@ -250,6 +250,7 @@ model Organization {
   supplierInvoices     SupplierInvoice[]
   reorderRules             ReorderRule[]
   replenishmentSuggestions ReplenishmentSuggestion[]
+  scheduledReports         ScheduledReport[]
 
   @@map("organizations")
 }
@@ -4065,4 +4066,42 @@ model SupplierInvoiceLine {
   @@index([invoiceId])
   @@index([poItemId])
   @@map("supplier_invoice_lines")
+}
+
+// ─── Scheduled Reports ────────────────────────────────────────────────────────
+
+enum ScheduledReportType {
+  BILLING_SUMMARY
+  INVENTORY_VALUATION
+  LOW_STOCK
+  PAYROLL_SUMMARY
+  PROCUREMENT_SUMMARY
+  PATIENT_ADMISSIONS
+}
+
+enum ScheduledReportFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+/// An email report that fires on a cron schedule and lands in one or more
+/// recipients' inboxes as a formatted HTML summary.
+model ScheduledReport {
+  id             String                   @id @default(cuid())
+  name           String
+  type           ScheduledReportType
+  frequency      ScheduledReportFrequency
+  recipients     Json
+  isActive       Boolean                  @default(true)
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  organizationId String
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, isActive, nextRunAt])
+  @@map("scheduled_reports")
 }
