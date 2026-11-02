@@ -258,6 +258,7 @@ model Organization {
   taxCodes         TaxCode[]
   taxApplications  TaxApplication[]
   taxReturns       TaxReturn[]
+  budgets          Budget[]
 
   @@map("organizations")
 }
@@ -3331,6 +3332,7 @@ model Account {
   lines        JournalLine[]
   organization Organization  @relation(fields: [organizationId], references: [id])
   bankAccount  BankAccount?
+  budgets      Budget[]
 
   @@unique([code, organizationId])
   @@index([organizationId, type])
@@ -4188,6 +4190,28 @@ model TaxReturn {
   @@unique([year, month, organizationId])
   @@index([organizationId, status])
   @@map("tax_returns")
+}
+
+// ── Budget vs Actuals ────────────────────────────────────────────────────────
+
+/// One budget line: a target amount for one GL account in one year (and optionally one month).
+model Budget {
+  id             String   @id @default(cuid())
+  accountId      String
+  year           Int
+  month          Int?     // null = annual budget; 1–12 = monthly budget line
+  budgetedAmount Decimal  @db.Decimal(14, 2)
+  notes          String?
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  account      Account      @relation(fields: [accountId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([accountId, year, month, organizationId])
+  @@index([organizationId, year])
+  @@map("budgets")
 }
 
 /// ISO 4217 currency master — shared across all organisations.

@@ -70,6 +70,7 @@ import { PosModule } from "./pos/pos.module";
 import { ShopModule } from "./shop/shop.module";
 import { ReportsModule } from "./reports/reports.module";
 import { TaxModule } from "./tax/tax.module";
+import { BudgetModule } from "./budget/budget.module";
 import { APP_INTERCEPTOR, APP_GUARD } from "@nestjs/core";
 import { AuditInterceptor } from "./common/interceptors/audit.interceptor";
 import { GlobalThrottlerGuard } from "./common/guards/global-throttler.guard";
@@ -171,6 +172,7 @@ import { GlobalThrottlerGuard } from "./common/guards/global-throttler.guard";
     ShopModule,
     ReportsModule,
     TaxModule,
+    BudgetModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
