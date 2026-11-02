@@ -9,6 +9,8 @@ export const ACCOUNTS = {
   AR_HMO: "1230",
   INVENTORY_DRUGS: "1310",
   INVENTORY_CONSUMABLES: "1320",
+  FIXED_ASSETS: "1400",
+  ACCUM_DEPRECIATION: "1450",
   AP_SUPPLIERS: "2010",
   SALARIES_PAYABLE: "2110",
   TAX_PAYABLE: "2120",
@@ -57,6 +59,9 @@ export const DEFAULT_CHART: Seed[] = [
   { code: "1310", name: "Inventory — Drugs", type: "ASSET", parent: "1300" },
   { code: "1320", name: "Inventory — Consumables", type: "ASSET", parent: "1300" },
   { code: "1400", name: "Fixed Assets", type: "ASSET", parent: "1000" },
+  // Contra-asset: depreciation is credited here rather than against 1400, so
+  // the balance sheet keeps gross cost and accumulated depreciation separate.
+  { code: "1450", name: "Accumulated Depreciation", type: "ASSET", parent: "1000" },
 
   { code: "2000", name: "Liabilities", type: "LIABILITY", isPostable: false },
   { code: "2010", name: "Accounts Payable — Suppliers", type: "LIABILITY", parent: "2000" },

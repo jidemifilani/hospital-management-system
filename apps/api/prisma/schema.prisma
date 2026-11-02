@@ -259,8 +259,9 @@ model Organization {
   taxApplications  TaxApplication[]
   taxReturns       TaxReturn[]
   budgets          Budget[]
-  rfqs             Rfq[]
-  rfqQuotes        RfqQuote[]
+  rfqs                Rfq[]
+  rfqQuotes           RfqQuote[]
+  depreciationEntries DepreciationEntry[]
 
   @@map("organizations")
 }
@@ -1954,9 +1955,20 @@ model Asset {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
-  department    Department?    @relation(fields: [departmentId], references: [id])
-  organization  Organization   @relation(fields: [organizationId], references: [id])
-  maintenances  AssetMaintenance[]
+  // ── Depreciation ──
+  depreciationMethod    DepreciationMethod?
+  usefulLifeMonths      Int?
+  salvageValue          Decimal?            @db.Decimal(12, 2)
+  /// When charging begins. Defaults to purchaseDate when depreciation is set up.
+  depreciationStartDate DateTime?
+  /// Set once the asset reaches salvage value or is disposed of, which stops
+  /// any further charge without having to inspect the schedule.
+  depreciationEndedAt   DateTime?
+
+  department        Department?    @relation(fields: [departmentId], references: [id])
+  organization      Organization   @relation(fields: [organizationId], references: [id])
+  maintenances      AssetMaintenance[]
+  depreciationEntries DepreciationEntry[]
 
   @@index([organizationId, status])
   @@index([organizationId, category])
@@ -3311,6 +3323,7 @@ enum JournalSource {
   PAYROLL
   OPENING_BALANCE
   ADJUSTMENT
+  DEPRECIATION
   HMO_CLAIM
   HMO_SHORTFALL
   HMO_REMITTANCE
@@ -4194,6 +4207,39 @@ model TaxReturn {
   @@unique([year, month, organizationId])
   @@index([organizationId, status])
   @@map("tax_returns")
+}
+
+// ── Fixed asset depreciation ─────────────────────────────────────────────────
+
+enum DepreciationMethod {
+  STRAIGHT_LINE
+  DECLINING_BALANCE
+}
+
+/// One month's depreciation charge for one asset. The unique key on
+/// (asset, year, month) is what makes a depreciation run safe to repeat: a
+/// period already charged cannot be charged twice.
+model DepreciationEntry {
+  id             String    @id @default(cuid())
+  assetId        String
+  year           Int
+  month          Int
+  amount         Decimal   @db.Decimal(12, 2)
+  /// Accumulated depreciation and net book value *after* this charge, stored so
+  /// the register does not have to replay the whole schedule to show them.
+  accumulated    Decimal   @db.Decimal(12, 2)
+  bookValue      Decimal   @db.Decimal(12, 2)
+  journalEntryId String?   @unique
+  postedAt       DateTime?
+  organizationId String
+  createdAt      DateTime  @default(now())
+
+  asset        Asset        @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([assetId, year, month])
+  @@index([organizationId, year, month])
+  @@map("depreciation_entries")
 }
 
 // ── Vendor RFQ workflow ──────────────────────────────────────────────────────

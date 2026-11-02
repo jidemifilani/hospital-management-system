@@ -62,6 +62,7 @@ import {
   Landmark,
   Receipt,
   TrendingUp,
+  TrendingDown,
   FileText,
 } from "lucide-react";
 
@@ -103,6 +104,7 @@ const navItems = [
   { href: "/procurement",  icon: ShoppingCart,    label: "Procurement",  group: "admin", permission: PERMISSIONS.PROCUREMENT_READ },
   { href: "/rfq",          icon: FileText,        label: "RFQ",          group: "admin", permission: PERMISSIONS.PROCUREMENT_READ },
   { href: "/assets",       icon: Boxes,           label: "Assets",       group: "admin", permission: PERMISSIONS.ASSETS_READ },
+  { href: "/assets/depreciation", icon: TrendingDown, label: "Depreciation", group: "admin", permission: PERMISSIONS.ASSETS_READ },
   { href: "/payroll",      icon: Wallet,          label: "Payroll",      group: "admin", permission: PERMISSIONS.PAYROLL_READ },
   { href: "/appraisals",   icon: Target,          label: "Appraisals",   group: "admin", permission: PERMISSIONS.APPRAISALS_READ },
   { href: "/certificates", icon: FileBadge,       label: "Certificates", group: "clinical", permission: PERMISSIONS.CERTIFICATES_READ },

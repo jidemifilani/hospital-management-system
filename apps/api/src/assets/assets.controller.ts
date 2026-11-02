@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards, HttpCode, HttpStatus } from "@nestjs/common";
 import { AssetsService } from "./assets.service";
+import { DepreciationService } from "./depreciation.service";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
@@ -11,11 +12,15 @@ import {
   ScheduleMaintenanceDto,
   UpdateAssetDto,
 } from "./dto/asset.dto";
+import { SetupDepreciationDto, RunDepreciationDto } from "./dto/depreciation.dto";
 
 @Controller("assets")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AssetsController {
-  constructor(private readonly service: AssetsService) {}
+  constructor(
+    private readonly service: AssetsService,
+    private readonly depreciation: DepreciationService,
+  ) {}
 
   @Post()
   @RequirePermissions(PERMISSIONS.ASSETS_MANAGE)
@@ -38,6 +43,47 @@ export class AssetsController {
   @RequirePermissions(PERMISSIONS.ASSETS_READ)
   getSummary(@CurrentUser() u: any) {
     return this.service.getSummary(u.organizationId);
+  }
+
+  // ── Depreciation ────────────────────────────────────────────────────────────
+  // Declared ahead of the ":id" routes so a literal path segment is never
+  // swallowed as an asset id.
+
+  @Get("depreciation/register")
+  @RequirePermissions(PERMISSIONS.ASSETS_READ)
+  register(@CurrentUser() u: any) {
+    return this.depreciation.register(u.organizationId);
+  }
+
+  @Get("depreciation/period")
+  @RequirePermissions(PERMISSIONS.ASSETS_READ)
+  periodEntries(@CurrentUser() u: any, @Query("year") year: string, @Query("month") month: string) {
+    return this.depreciation.periodEntries(parseInt(year), parseInt(month), u.organizationId);
+  }
+
+  @Post("depreciation/run")
+  @RequirePermissions(PERMISSIONS.ASSETS_MANAGE)
+  @HttpCode(HttpStatus.OK)
+  runDepreciation(@Body() dto: RunDepreciationDto, @CurrentUser() u: any) {
+    return this.depreciation.runMonth(dto.year, dto.month, u.organizationId, u.staffId ?? undefined);
+  }
+
+  @Post(":id/depreciation/setup")
+  @RequirePermissions(PERMISSIONS.ASSETS_MANAGE)
+  setupDepreciation(@Param("id") id: string, @Body() dto: SetupDepreciationDto, @CurrentUser() u: any) {
+    return this.depreciation.setup(id, dto, u.organizationId);
+  }
+
+  @Get(":id/depreciation/schedule")
+  @RequirePermissions(PERMISSIONS.ASSETS_READ)
+  schedule(@Param("id") id: string, @CurrentUser() u: any) {
+    return this.depreciation.schedule(id, u.organizationId);
+  }
+
+  @Get(":id/depreciation/entries")
+  @RequirePermissions(PERMISSIONS.ASSETS_READ)
+  depreciationEntries(@Param("id") id: string, @CurrentUser() u: any) {
+    return this.depreciation.entries(id, u.organizationId);
   }
 
   @Get(":id")
