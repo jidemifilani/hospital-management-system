@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsDateString } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 // Without decorators the global whitelist pipe rejects every property.
 export class RecordAttendanceDto {
@@ -9,5 +10,5 @@ export class RecordAttendanceDto {
 }
 
 export class ClockDto {
-  @IsDateString() @IsOptional() time?: string;
+  @IsDateString() @OptionalWhenBlank() time?: string;
 }

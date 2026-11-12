@@ -8,6 +8,7 @@ import {
 } from "class-validator";
 import { AdmissionType, AdmissionStatus, DischargeType } from "@prisma/client";
 import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class AdmitPatientDto {
   @IsString()
@@ -35,7 +36,7 @@ export class AdmitPatientDto {
   attendingDoctorId?: string;
 
   @IsEnum(AdmissionType)
-  @IsOptional()
+  @OptionalWhenBlank()
   admissionType?: AdmissionType;
 
   /** An admission without a stated reason cannot be clinically reviewed. */
@@ -50,7 +51,7 @@ export class AdmitPatientDto {
   provisionalDiagnosis?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   expectedDischargeAt?: string;
 }
 
@@ -67,7 +68,7 @@ export class TransferBedDto {
 
 export class DischargeDto {
   @IsEnum(DischargeType)
-  @IsOptional()
+  @OptionalWhenBlank()
   dischargeType?: DischargeType;
 
   @IsString()
@@ -76,7 +77,7 @@ export class DischargeDto {
   dischargeNotes?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   followUpDate?: string;
 
   @IsString()
@@ -90,7 +91,7 @@ export class DischargeDto {
   medicationsOnDischarge?: string;
 
   @IsEnum(AdmissionStatus)
-  @IsOptional()
+  @OptionalWhenBlank()
   status?: AdmissionStatus;
 
   @IsStrictBoolean()

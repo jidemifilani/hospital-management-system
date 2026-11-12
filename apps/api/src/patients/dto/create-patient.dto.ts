@@ -8,6 +8,7 @@ import {
   MaxLength,
 } from "class-validator";
 import { Gender, BloodGroup } from "@prisma/client";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class CreatePatientDto {
   @IsString()
@@ -28,7 +29,7 @@ export class CreatePatientDto {
   phone: string;
 
   @IsEmail()
-  @IsOptional()
+  @OptionalWhenBlank()
   email?: string;
 
   @IsString()
@@ -40,7 +41,7 @@ export class CreatePatientDto {
   state?: string;
 
   @IsEnum(BloodGroup)
-  @IsOptional()
+  @OptionalWhenBlank()
   bloodGroup?: BloodGroup;
 
   @IsString()

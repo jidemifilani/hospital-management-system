@@ -13,6 +13,7 @@ import {
 } from "class-validator";
 import { PayerType } from "@prisma/client";
 import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class CreateProviderDto {
   @IsString()
@@ -22,7 +23,7 @@ export class CreateProviderDto {
 
   /** An insurer, a company on retainership, or the national scheme. */
   @IsEnum(PayerType)
-  @IsOptional()
+  @OptionalWhenBlank()
   type?: PayerType;
 
   @IsString()
@@ -36,7 +37,7 @@ export class CreateProviderDto {
   contactName?: string;
 
   @IsEmail()
-  @IsOptional()
+  @OptionalWhenBlank()
   email?: string;
 
   @IsString()
@@ -101,7 +102,7 @@ export class CreateContractDto {
   startsAt: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   endsAt?: string;
 
   @IsInt()
@@ -138,7 +139,7 @@ export class EnrolPatientDto {
   startsAt: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   endsAt?: string;
 
   @IsStrictBoolean()

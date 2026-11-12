@@ -9,6 +9,7 @@ import {
   IsNotEmpty,
 } from "class-validator";
 import { ServiceCategory } from "@prisma/client";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class PostManualChargeDto {
   @IsString()
@@ -21,7 +22,7 @@ export class PostManualChargeDto {
    * uncategorised charge could not be attributed to a revenue account.
    */
   @IsEnum(ServiceCategory)
-  @IsOptional()
+  @OptionalWhenBlank()
   category?: ServiceCategory;
 
   /** The item is named by id or by catalogue code; the service resolves it. */

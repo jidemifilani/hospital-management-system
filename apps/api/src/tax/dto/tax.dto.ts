@@ -1,5 +1,7 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsEnum, IsBoolean, IsInt, Min, Max, MaxLength } from "class-validator";
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsEnum, IsInt, Min, Max, MaxLength } from "class-validator";
 import { TaxCodeType, TaxReturnStatus } from "@prisma/client";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 const REF_TYPES = ["INVOICE", "SUPPLIER_INVOICE", "PURCHASE_ORDER"] as const;
 
@@ -7,14 +9,14 @@ export class CreateTaxCodeDto {
   @IsString() @IsNotEmpty() @MaxLength(30) code: string;
   @IsString() @IsNotEmpty() @MaxLength(120) name: string;
   @IsNumber() @Min(0) @Max(100) rate: number;
-  @IsEnum(TaxCodeType) @IsOptional() type?: TaxCodeType;
+  @IsEnum(TaxCodeType) @OptionalWhenBlank() type?: TaxCodeType;
 }
 
 export class UpdateTaxCodeDto {
   @IsString() @IsOptional() @MaxLength(120) name?: string;
   @IsNumber() @Min(0) @Max(100) @IsOptional() rate?: number;
-  @IsEnum(TaxCodeType) @IsOptional() type?: TaxCodeType;
-  @IsBoolean() @IsOptional() isActive?: boolean;
+  @IsEnum(TaxCodeType) @OptionalWhenBlank() type?: TaxCodeType;
+  @IsStrictBoolean() @IsOptional() isActive?: boolean;
 }
 
 export class ApplyTaxDto {
@@ -31,6 +33,6 @@ export class CreateTaxReturnDto {
 }
 
 export class UpdateTaxReturnDto {
-  @IsEnum(TaxReturnStatus) @IsOptional() status?: TaxReturnStatus;
+  @IsEnum(TaxReturnStatus) @OptionalWhenBlank() status?: TaxReturnStatus;
   @IsString() @IsOptional() notes?: string;
 }

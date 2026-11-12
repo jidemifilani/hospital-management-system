@@ -7,6 +7,7 @@ import {
   IsString,
   MaxLength,
 } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /**
  * Discharging a patient: the summary they leave with.
@@ -29,7 +30,7 @@ export class CreateDischargeRecordDto {
   dischargeType: DischargeType;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   admittedAt?: string;
 
   @IsString()
@@ -49,7 +50,7 @@ export class CreateDischargeRecordDto {
 
   /** Read by patient recall to chase a patient who was told to come back. */
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   followUpDate?: string;
 }
 
@@ -70,6 +71,6 @@ export class CompleteDischargeRecordDto {
   medicationsOnDischarge?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   followUpDate?: string;
 }

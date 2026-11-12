@@ -10,6 +10,7 @@ import {
   MaxLength,
   Min,
 } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /**
  * Staff training records, including the mandatory ones a hospital has to be
@@ -38,11 +39,11 @@ export class CreateTrainingRecordDto {
   provider?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   startDate?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   endDate?: string;
 
   @IsString()
@@ -63,7 +64,7 @@ export class CompleteTrainingRecordDto {
    * nothing ever chases.
    */
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   expiryDate?: string;
 
   @IsNumber()

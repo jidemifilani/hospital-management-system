@@ -13,6 +13,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { BomType } from "@prisma/client";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class BomLineDto {
   @IsString()
@@ -36,7 +37,7 @@ export class CreateBomDto {
   name: string;
 
   @IsEnum(BomType)
-  @IsOptional()
+  @OptionalWhenBlank()
   type?: BomType;
 
   @IsString()
@@ -96,7 +97,7 @@ export class CompleteRunDto {
   batchNumber?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   expiresAt?: string;
 
   @IsString()

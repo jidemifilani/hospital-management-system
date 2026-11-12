@@ -7,6 +7,7 @@ import {
   IsNotEmpty,
 } from "class-validator";
 import { OutreachChannel, OutreachOutcome, RecallSource } from "@prisma/client";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class RaiseRecallDto {
   @IsString()
@@ -28,7 +29,7 @@ export class RaiseRecallDto {
   instructions?: string;
 
   @IsEnum(RecallSource)
-  @IsOptional()
+  @OptionalWhenBlank()
   source?: RecallSource;
 
   @IsString()

@@ -14,6 +14,7 @@ import {
 import { Type } from "class-transformer";
 import { AccountType } from "@prisma/client";
 import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class CreateAccountDto {
   @IsString()
@@ -88,7 +89,7 @@ export class PostJournalEntryDto {
   lines: JournalLineDto[];
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   entryDate?: string;
 
   @IsString()

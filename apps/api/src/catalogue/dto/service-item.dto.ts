@@ -9,6 +9,7 @@ import {
 } from "class-validator";
 import { ServiceCategory } from "@prisma/client";
 import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class CreateServiceItemDto {
   @IsString()
@@ -58,7 +59,7 @@ export class UpdateServiceItemDto {
   name?: string;
 
   @IsEnum(ServiceCategory)
-  @IsOptional()
+  @OptionalWhenBlank()
   category?: ServiceCategory;
 
   @IsNumber()

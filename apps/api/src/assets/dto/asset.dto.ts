@@ -10,6 +10,7 @@ import {
   MaxLength,
   Min,
 } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /** Equipment and property, and the maintenance each piece is due. */
 export class CreateAssetDto {
@@ -46,7 +47,7 @@ export class CreateAssetDto {
   location?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   purchaseDate?: string;
 
   /** Money, so a number and never negative. */
@@ -56,7 +57,7 @@ export class CreateAssetDto {
   purchasePrice?: number;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   warrantyExpiry?: string;
 
   @IsString()

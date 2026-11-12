@@ -1,5 +1,7 @@
-import { IsString, IsNotEmpty, IsEnum, IsArray, IsEmail, IsOptional, IsBoolean, MaxLength } from "class-validator";
+import { IsString, IsNotEmpty, IsEnum, IsArray, IsEmail, IsOptional, MaxLength } from "class-validator";
 import { ScheduledReportType, ScheduledReportFrequency } from "@prisma/client";
+import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class CreateScheduledReportDto {
   @IsString()
@@ -25,19 +27,19 @@ export class UpdateScheduledReportDto {
   name?: string;
 
   @IsEnum(ScheduledReportType)
-  @IsOptional()
+  @OptionalWhenBlank()
   type?: ScheduledReportType;
 
   @IsEnum(ScheduledReportFrequency)
-  @IsOptional()
+  @OptionalWhenBlank()
   frequency?: ScheduledReportFrequency;
 
   @IsArray()
   @IsEmail({}, { each: true })
-  @IsOptional()
+  @OptionalWhenBlank()
   recipients?: string[];
 
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   isActive?: boolean;
 }

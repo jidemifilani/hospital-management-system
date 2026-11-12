@@ -169,11 +169,10 @@ export class ReportsService {
 
   private async _billingHtml(orgId: string) {
     const thirty = new Date(Date.now() - 30 * 86_400_000);
-    const [total, paid, overdue, counts] = await Promise.all([
+    const [total, paid, overdue] = await Promise.all([
       this.prisma.invoice.aggregate({ where: { organizationId: orgId }, _sum: { total: true } }),
       this.prisma.invoice.aggregate({ where: { organizationId: orgId, status: "PAID" }, _sum: { total: true } }),
       this.prisma.invoice.aggregate({ where: { organizationId: orgId, status: "OVERDUE" }, _sum: { total: true } }),
-      this.prisma.invoice.groupBy({ by: ["status"], where: { organizationId: orgId }, _count: true }),
     ]);
 
     const recent = await this.prisma.invoice.findMany({

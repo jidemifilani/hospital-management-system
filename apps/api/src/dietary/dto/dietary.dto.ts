@@ -8,6 +8,7 @@ import {
   MaxLength,
 } from "class-validator";
 import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /** Diet orders and what the patient was actually served and ate. */
 export class CreateDietOrderDto {
@@ -22,11 +23,11 @@ export class CreateDietOrderDto {
   dietType: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   startDate?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   endDate?: string;
 
   /**
@@ -53,7 +54,7 @@ export class RecordMealDto {
   mealType: MealType;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   date?: string;
 
   @IsStrictBoolean()

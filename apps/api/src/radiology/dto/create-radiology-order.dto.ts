@@ -1,4 +1,5 @@
 import { IsString, IsEnum, IsOptional, IsDateString } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export enum ImagingModality {
   XRAY = "XRAY", CT_SCAN = "CT_SCAN", MRI = "MRI", ULTRASOUND = "ULTRASOUND",
@@ -17,7 +18,7 @@ export class CreateRadiologyOrderDto {
   @IsOptional() @IsString() serviceItemId?: string;
   @IsEnum(ImagingModality) modality: ImagingModality;
   @IsString() bodyPart: string;
-  @IsOptional() @IsEnum(OrderPriority) priority?: OrderPriority;
+  @OptionalWhenBlank() @IsEnum(OrderPriority) priority?: OrderPriority;
   @IsOptional() @IsString() clinicalInfo?: string;
-  @IsOptional() @IsDateString() scheduledAt?: string;
+  @OptionalWhenBlank() @IsDateString() scheduledAt?: string;
 }

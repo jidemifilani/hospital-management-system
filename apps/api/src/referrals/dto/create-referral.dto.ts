@@ -1,4 +1,5 @@
 import { IsString, IsEnum, IsOptional } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export enum ReferralTypeDto { INTERNAL = "INTERNAL", EXTERNAL = "EXTERNAL" }
 export enum ReferralUrgencyDto { ROUTINE = "ROUTINE", URGENT = "URGENT", EMERGENCY = "EMERGENCY" }
@@ -6,7 +7,7 @@ export enum ReferralUrgencyDto { ROUTINE = "ROUTINE", URGENT = "URGENT", EMERGEN
 export class CreateReferralDto {
   @IsString() patientId: string;
   @IsEnum(ReferralTypeDto) type: ReferralTypeDto;
-  @IsEnum(ReferralUrgencyDto) @IsOptional() urgency?: ReferralUrgencyDto;
+  @IsEnum(ReferralUrgencyDto) @OptionalWhenBlank() urgency?: ReferralUrgencyDto;
   @IsString() reason: string;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsString() toStaffId?: string;

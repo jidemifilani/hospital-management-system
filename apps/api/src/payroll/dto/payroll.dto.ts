@@ -2,7 +2,6 @@ import { PayComponentType, PayrollStatus } from "@prisma/client";
 import { Type } from "class-transformer";
 import {
   IsArray,
-  IsBoolean,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -68,12 +67,12 @@ export class CreatePayrollDto {
   components?: PayComponentDto[];
 
   /** When true the service auto-computes and injects PAYE, pension, NHF lines */
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   autoComputeStatutory?: boolean;
 
   /** Set false to skip NHF when autoComputeStatutory is true. Default: true */
-  @IsBoolean()
+  @IsStrictBoolean()
   @IsOptional()
   applyNhf?: boolean;
 
@@ -99,7 +98,7 @@ export class ComputeTaxDto {
   @IsNumber() @Min(0) @IsOptional() transportAllowance?: number;
   @IsNumber() @Min(0) @IsOptional() medicalAllowance?: number;
   @IsNumber() @Min(0) @IsOptional() otherAllowances?: number;
-  @IsBoolean() @IsOptional() applyNhf?: boolean;
+  @IsStrictBoolean() @IsOptional() applyNhf?: boolean;
 }
 
 export class CreateSalaryGradeDto {
@@ -118,5 +117,5 @@ export class UpdateSalaryGradeDto {
   @IsNumber() @Min(0) @IsOptional() transportAllowance?: number;
   @IsNumber() @Min(0) @IsOptional() medicalAllowance?: number;
   @IsNumber() @Min(0) @IsOptional() otherAllowances?: number;
-  @IsBoolean() @IsOptional() isActive?: boolean;
+  @IsStrictBoolean() @IsOptional() isActive?: boolean;
 }

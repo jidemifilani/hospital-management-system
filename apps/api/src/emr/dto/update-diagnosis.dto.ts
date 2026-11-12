@@ -1,4 +1,5 @@
 import { IsDateString, IsOptional, IsString, MaxLength } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /**
  * Updating a diagnosis — resolving it, or adding to the note.
@@ -15,7 +16,7 @@ export class UpdateDiagnosisDto {
   status?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   resolvedAt?: string;
 
   @IsString()

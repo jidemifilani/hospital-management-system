@@ -7,6 +7,7 @@ import {
   IsString,
   MaxLength,
 } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /**
  * A ward round: the doctor's visit to a patient and what came of it.
@@ -29,7 +30,7 @@ export class CreateWardRoundDto {
   nurseId?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   roundDate?: string;
 
   @IsString()
@@ -58,7 +59,7 @@ export class CreateWardRoundDto {
    * used to mean a follow-up that silently never happened.
    */
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   followUpDate?: string;
 
   @IsString()
@@ -89,7 +90,7 @@ export class UpdateWardRoundDto {
   plan?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   followUpDate?: string;
 
   @IsString()
@@ -98,7 +99,7 @@ export class UpdateWardRoundDto {
   notes?: string;
 
   @IsEnum(WardRoundStatus)
-  @IsOptional()
+  @OptionalWhenBlank()
   status?: WardRoundStatus;
 }
 

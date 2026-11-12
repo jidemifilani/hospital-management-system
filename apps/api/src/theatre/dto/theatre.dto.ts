@@ -10,6 +10,7 @@ import {
   MaxLength,
   Min,
 } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /** Theatre bookings: the operation, the team, and the room. */
 export class CreateTheatreBookingDto {
@@ -73,11 +74,11 @@ export class UpdateTheatreBookingStatusDto {
   status: TheatreBookingStatus;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   actualStartTime?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   actualEndTime?: string;
 
   @IsString()

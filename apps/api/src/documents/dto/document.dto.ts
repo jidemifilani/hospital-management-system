@@ -1,5 +1,6 @@
 import { IsString, IsOptional, IsEnum, MaxLength, IsNotEmpty } from "class-validator";
 import { DocumentCategory, DocumentConfidentiality } from "@prisma/client";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /**
  * Multipart fields arrive as strings, so these carry no numeric or boolean
@@ -17,11 +18,11 @@ export class UploadDocumentDto {
   description?: string;
 
   @IsEnum(DocumentCategory)
-  @IsOptional()
+  @OptionalWhenBlank()
   category?: DocumentCategory;
 
   @IsEnum(DocumentConfidentiality)
-  @IsOptional()
+  @OptionalWhenBlank()
   confidentiality?: DocumentConfidentiality;
 
   @IsString()

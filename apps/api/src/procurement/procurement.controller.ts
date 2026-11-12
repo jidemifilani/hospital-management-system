@@ -6,6 +6,8 @@ import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { PERMISSIONS } from "@hms/config";
 import { CreatePurchaseOrderDto } from "./dto/purchase-order.dto";
+import { CreateGoodsReceiptDto } from "./dto/goods-receipt.dto";
+import { CreateSupplierInvoiceDto } from "./dto/supplier-invoice.dto";
 
 @Controller("procurement")
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -57,8 +59,8 @@ export class ProcurementController {
 
   @Post(":id/grns")
   @RequirePermissions(PERMISSIONS.PROCUREMENT_MANAGE)
-  createGrn(@Param("id") id: string, @Body() body: any, @CurrentUser() u: any) {
-    return this.service.createGrn(id, u.organizationId, u.staffId, body);
+  createGrn(@Param("id") id: string, @Body() dto: CreateGoodsReceiptDto, @CurrentUser() u: any) {
+    return this.service.createGrn(id, u.organizationId, u.staffId, dto);
   }
 
   @Get(":id/grns")
@@ -71,8 +73,12 @@ export class ProcurementController {
 
   @Post(":id/supplier-invoices")
   @RequirePermissions(PERMISSIONS.PROCUREMENT_MANAGE)
-  createSupplierInvoice(@Param("id") id: string, @Body() body: any, @CurrentUser() u: any) {
-    return this.service.createSupplierInvoice(id, u.organizationId, body);
+  createSupplierInvoice(
+    @Param("id") id: string,
+    @Body() dto: CreateSupplierInvoiceDto,
+    @CurrentUser() u: any,
+  ) {
+    return this.service.createSupplierInvoice(id, u.organizationId, dto);
   }
 
   @Get(":id/supplier-invoices")

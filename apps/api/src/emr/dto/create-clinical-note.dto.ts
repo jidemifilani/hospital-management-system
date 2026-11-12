@@ -1,11 +1,12 @@
 import { IsString, IsOptional, IsEnum } from "class-validator";
 import { ClinicalNoteType } from "@prisma/client";
 import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class CreateClinicalNoteDto {
   @IsString() patientId: string;
   @IsString() @IsOptional() appointmentId?: string;
-  @IsEnum(ClinicalNoteType) @IsOptional() noteType?: ClinicalNoteType;
+  @IsEnum(ClinicalNoteType) @OptionalWhenBlank() noteType?: ClinicalNoteType;
   @IsString() @IsOptional() subjective?: string;
   @IsString() @IsOptional() objective?: string;
   @IsString() @IsOptional() assessment?: string;

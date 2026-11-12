@@ -12,6 +12,7 @@ import {
   MaxLength,
   Min,
 } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /**
  * The blood bank. Of everything in this pass, the blood group is the field
@@ -39,11 +40,11 @@ export class AddBloodDonorDto {
   phone: string;
 
   @IsEmail()
-  @IsOptional()
+  @OptionalWhenBlank()
   email?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   dateOfBirth?: string;
 }
 
@@ -69,7 +70,7 @@ export class AddBloodUnitDto {
    * that screen makes.
    */
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   collectedAt?: string;
 
   /**

@@ -7,6 +7,7 @@ import {
 } from "class-validator";
 import { TicketCategory, TicketPriority, TicketStatus, TicketTeam } from "@prisma/client";
 import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class CreateTicketDto {
   @IsString()
@@ -29,12 +30,12 @@ export class CreateTicketDto {
   location: string;
 
   @IsEnum(TicketPriority)
-  @IsOptional()
+  @OptionalWhenBlank()
   priority?: TicketPriority;
 
   /** Defaults from the category when not given. */
   @IsEnum(TicketTeam)
-  @IsOptional()
+  @OptionalWhenBlank()
   team?: TicketTeam;
 
   @IsString()

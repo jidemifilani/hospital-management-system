@@ -11,6 +11,7 @@ import {
   Min,
 } from "class-validator";
 import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /**
  * Medical certificates — sick leave, fitness to work, and death certificates.
@@ -30,7 +31,7 @@ export class CreateCertificateDto {
   type: CertificateType;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   issueDate?: string;
 
   @IsString()
@@ -41,11 +42,11 @@ export class CreateCertificateDto {
   /* ── Sick leave and fitness to work ───────────────────────────────── */
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   startDate?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   endDate?: string;
 
   /** Bounded: a sick note for 10,000 days is a typo, not a prognosis. */
@@ -65,7 +66,7 @@ export class CreateCertificateDto {
   restrictions?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   expiryDate?: string;
 
   /* ── Death certificate ────────────────────────────────────────────── */
@@ -76,7 +77,7 @@ export class CreateCertificateDto {
   deceasedName?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   deathDate?: string;
 
   @IsString()

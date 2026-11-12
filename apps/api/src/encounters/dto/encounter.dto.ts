@@ -7,6 +7,7 @@ import {
 } from "class-validator";
 import { EncounterType, EncounterStatus } from "@prisma/client";
 import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class CreateEncounterDto {
   @IsString()
@@ -14,7 +15,7 @@ export class CreateEncounterDto {
   patientId: string;
 
   @IsEnum(EncounterType)
-  @IsOptional()
+  @OptionalWhenBlank()
   type?: EncounterType;
 
   @IsString()

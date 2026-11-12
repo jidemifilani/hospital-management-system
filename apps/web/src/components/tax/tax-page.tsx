@@ -108,7 +108,7 @@ function CodesTab() {
               </TableHeader>
               <TableBody>
                 {codes.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">No tax codes. Use "Seed Defaults" to add Nigerian standard codes.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">No tax codes. Use “Seed Defaults” to add Nigerian standard codes.</TableCell></TableRow>
                 )}
                 {codes.map((c) => (
                   <TableRow key={c.id} className={!c.isActive ? "opacity-50" : ""}>

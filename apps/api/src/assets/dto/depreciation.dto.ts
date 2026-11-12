@@ -1,5 +1,6 @@
 import { IsEnum, IsInt, IsNumber, IsOptional, IsDateString, Min, Max } from "class-validator";
 import { DepreciationMethod } from "@prisma/client";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class SetupDepreciationDto {
   @IsEnum(DepreciationMethod) depreciationMethod: DepreciationMethod;
@@ -9,7 +10,7 @@ export class SetupDepreciationDto {
 
   @IsNumber() @Min(0) @IsOptional() salvageValue?: number;
 
-  @IsDateString() @IsOptional() depreciationStartDate?: string;
+  @IsDateString() @OptionalWhenBlank() depreciationStartDate?: string;
 }
 
 export class RunDepreciationDto {

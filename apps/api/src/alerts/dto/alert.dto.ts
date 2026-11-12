@@ -1,5 +1,6 @@
 import { AlertSeverity, AlertType } from "@prisma/client";
 import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /**
  * The body was typed `any`, which means the global validation pipe had nothing
@@ -20,7 +21,7 @@ export class CreateAlertDto {
 
   /** Defaults to MODERATE in the service when absent. */
   @IsEnum(AlertSeverity)
-  @IsOptional()
+  @OptionalWhenBlank()
   severity?: AlertSeverity;
 
   @IsString()

@@ -10,6 +10,7 @@ import {
   Min,
 } from "class-validator";
 import { IsStrictBoolean } from "../../common/validation/is-strict-boolean.decorator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /**
  * Patient feedback and the hospital's reply.
@@ -58,6 +59,6 @@ export class RespondToFeedbackDto {
   response: string;
 
   @IsEnum(FeedbackStatus)
-  @IsOptional()
+  @OptionalWhenBlank()
   status?: FeedbackStatus;
 }

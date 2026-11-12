@@ -10,6 +10,7 @@ import {
   MaxLength,
   ValidateNested,
 } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /** A nursing care plan and the tasks it breaks down into. */
 export class CreateCarePlanDto {
@@ -28,11 +29,11 @@ export class CreateCarePlanDto {
   goals?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   startDate?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   endDate?: string;
 
   /**
@@ -68,7 +69,7 @@ export class AddCarePlanTaskDto {
   frequency?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   dueAt?: string;
 }
 

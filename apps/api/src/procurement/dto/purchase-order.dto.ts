@@ -12,6 +12,7 @@ import {
   Min,
   ValidateNested,
 } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /** A line on a purchase order. */
 export class PurchaseOrderItemDto {
@@ -69,11 +70,11 @@ export class CreatePurchaseOrderDto {
   vendorContact?: string;
 
   @IsEmail()
-  @IsOptional()
+  @OptionalWhenBlank()
   vendorEmail?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   expectedAt?: string;
 
   @IsArray()

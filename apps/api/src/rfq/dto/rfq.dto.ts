@@ -3,6 +3,7 @@ import {
   ValidateNested, ArrayMinSize, Min, MaxLength, IsDateString,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class RfqItemDto {
   @IsString() @IsNotEmpty() @MaxLength(200) itemName: string;
@@ -15,7 +16,7 @@ export class RfqItemDto {
 export class CreateRfqDto {
   @IsString() @IsNotEmpty() @MaxLength(200) title: string;
   @IsString() @IsOptional() description?: string;
-  @IsDateString() @IsOptional() dueDate?: string;
+  @IsDateString() @OptionalWhenBlank() dueDate?: string;
   @IsString() @IsOptional() notes?: string;
 
   @IsArray() @ArrayMinSize(1)
@@ -27,14 +28,14 @@ export class CreateRfqDto {
 export class UpdateRfqDto {
   @IsString() @IsOptional() @MaxLength(200) title?: string;
   @IsString() @IsOptional() description?: string;
-  @IsDateString() @IsOptional() dueDate?: string;
+  @IsDateString() @OptionalWhenBlank() dueDate?: string;
   @IsString() @IsOptional() notes?: string;
 }
 
 export class InviteVendorDto {
   @IsString() @IsNotEmpty() @MaxLength(200) vendorName: string;
   @IsString() @IsOptional() @MaxLength(100) vendorContact?: string;
-  @IsEmail() @IsOptional() vendorEmail?: string;
+  @IsEmail() @OptionalWhenBlank() vendorEmail?: string;
 }
 
 export class QuoteLineDto {
@@ -51,7 +52,7 @@ export class SubmitQuoteDto {
   lines: QuoteLineDto[];
 
   @IsInt() @Min(0) @IsOptional() leadTimeDays?: number;
-  @IsDateString() @IsOptional() validUntil?: string;
+  @IsDateString() @OptionalWhenBlank() validUntil?: string;
   @IsString() @IsOptional() notes?: string;
 }
 

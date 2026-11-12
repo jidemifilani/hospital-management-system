@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, BadRequestException } from "@nestjs/comm
 import { PrismaService } from "../prisma/prisma.service";
 import { customAlphabet } from "nanoid";
 import { Decimal } from "@prisma/client/runtime/library";
+import { CreateGoodsReceiptDto } from "./dto/goods-receipt.dto";
+import { CreateSupplierInvoiceDto } from "./dto/supplier-invoice.dto";
 
 const genNum = customAlphabet("0123456789", 8);
 const genAlpha = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 8);
@@ -121,7 +123,7 @@ export class ProcurementService {
     poId: string,
     organizationId: string,
     receivedById: string | undefined,
-    data: { receivedAt?: string; notes?: string; lines: { poItemId: string; quantity: number; unitCost: number; notes?: string }[] },
+    data: CreateGoodsReceiptDto,
   ) {
     const po = await this.prisma.purchaseOrder.findFirst({ where: { id: poId, organizationId }, include: { items: true } });
     if (!po) throw new NotFoundException("Purchase order not found");
@@ -183,13 +185,7 @@ export class ProcurementService {
   async createSupplierInvoice(
     poId: string,
     organizationId: string,
-    data: {
-      vendorInvoiceNo?: string;
-      invoiceDate: string;
-      dueDate?: string;
-      notes?: string;
-      lines: { poItemId?: string; description: string; quantity: number; unitPrice: number }[];
-    },
+    data: CreateSupplierInvoiceDto,
   ) {
     const po = await this.prisma.purchaseOrder.findFirst({ where: { id: poId, organizationId } });
     if (!po) throw new NotFoundException("Purchase order not found");
@@ -204,6 +200,7 @@ export class ProcurementService {
         invoiceDate: new Date(data.invoiceDate),
         dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
         totalAmount: new Decimal(totalAmount),
+        notes: data.notes,
         organizationId,
         lines: {
           create: data.lines.map((l) => ({

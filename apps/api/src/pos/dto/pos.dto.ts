@@ -13,6 +13,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { PaymentMethod } from "@prisma/client";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 export class OpenSessionDto {
   @IsString()
@@ -67,7 +68,7 @@ export class CreateSaleDto {
   lines: SaleLineDto[];
 
   @IsEnum(PaymentMethod)
-  @IsOptional()
+  @OptionalWhenBlank()
   method?: PaymentMethod;
 
   @IsString()

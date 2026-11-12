@@ -8,6 +8,7 @@ import {
   IsString,
   MaxLength,
 } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /**
  * The shift handover: what the outgoing staff are passing on.
@@ -30,7 +31,7 @@ export class CreateHandoverDto {
   departmentId?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   handoverDate?: string;
 
   @IsArray()

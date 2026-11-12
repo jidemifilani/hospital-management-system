@@ -7,6 +7,7 @@ import {
   IsString,
   MaxLength,
 } from "class-validator";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /**
  * The medication administration record: what was given, to whom, and when.
@@ -71,6 +72,6 @@ export class SkipMarRecordDto {
    * different clinical fact.
    */
   @IsEnum(MARStatus)
-  @IsOptional()
+  @OptionalWhenBlank()
   status?: MARStatus;
 }

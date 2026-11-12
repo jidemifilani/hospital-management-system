@@ -45,6 +45,13 @@ const SERVED_BY: Record<string, string> = {
   "/admin/site-settings": "site-settings",
   // The one link outside the groups, checked separately in the component.
   "/settings": "settings",
+  // Pages that live under another page's path and are served by that module's
+  // controller rather than one of their own. Without an entry here the route
+  // "billing/debt-worklist" is looked for as a controller prefix, found
+  // nowhere, and reported as a page with no API behind it.
+  "/billing/debt-worklist": "billing",
+  "/accounting/reconciliation": "accounting",
+  "/assets/depreciation": "assets",
 };
 
 type NavItem = { href: string; permission: string };

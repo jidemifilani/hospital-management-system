@@ -10,6 +10,7 @@ import {
   IsNotEmpty,
 } from "class-validator";
 import { InventoryCategory, StockLocationType } from "@prisma/client";
+import { OptionalWhenBlank } from "../../common/validation/optional-when-blank.decorator";
 
 /**
  * These bodies were previously declared as inline TypeScript types, which
@@ -30,7 +31,7 @@ export class CreateInventoryItemDto {
   name: string;
 
   @IsEnum(InventoryCategory)
-  @IsOptional()
+  @OptionalWhenBlank()
   category?: InventoryCategory;
 
   @IsString()
@@ -66,7 +67,7 @@ export class CreateStockLocationDto {
   name: string;
 
   @IsEnum(StockLocationType)
-  @IsOptional()
+  @OptionalWhenBlank()
   type?: StockLocationType;
 
   @IsString()
@@ -101,7 +102,7 @@ export class ReceiveStockDto {
   batchNumber?: string;
 
   @IsDateString()
-  @IsOptional()
+  @OptionalWhenBlank()
   expiresAt?: string;
 
   @IsString()
@@ -124,7 +125,7 @@ export class IssueStockDto {
   quantity: number;
 
   @IsEnum(["ISSUE", "CONSUMPTION", "WRITE_OFF"])
-  @IsOptional()
+  @OptionalWhenBlank()
   type?: "ISSUE" | "CONSUMPTION" | "WRITE_OFF";
 
   @IsString()
