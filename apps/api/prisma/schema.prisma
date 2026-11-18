@@ -262,6 +262,7 @@ model Organization {
   rfqs                Rfq[]
   rfqQuotes           RfqQuote[]
   depreciationEntries DepreciationEntry[]
+  reportDefinitions   ReportDefinition[]
 
   @@map("organizations")
 }
@@ -398,6 +399,7 @@ model Staff {
   carePlansAsNurse         CarePlan[]        @relation("NurseCarePlans")
   purchaseOrdersCreated    PurchaseOrder[]   @relation("POCreatedBy")
   rfqsCreated              Rfq[]             @relation("RfqCreatedBy")
+  reportsCreated           ReportDefinition[] @relation("ReportCreatedBy")
   dietOrders               DietOrder[]       @relation("DietOrderedBy")
   triageRecords            TriageRecord[]    @relation("TriageNurse")
   payrolls                 Payroll[]
@@ -4130,6 +4132,37 @@ model ScheduledReport {
 
   @@index([organizationId, isActive, nextRunAt])
   @@map("scheduled_reports")
+}
+
+// A saved question for the report builder.
+//
+// The shape of the query is held as JSON rather than as columns because it is
+// a tree -- groupings, measures and conditions -- and because what it may
+// contain is decided by the source registry in code, which is the only thing
+// that can validate it. It is recompiled against that registry every time it
+// is saved and every time it runs, so a definition cannot outlive the field
+// it names.
+model ReportDefinition {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  source         String
+  dimensions     Json
+  measures       Json
+  filters        Json
+  sort           Json?
+  limit          Int?
+  createdById    String?
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  createdBy    Staff?       @relation("ReportCreatedBy", fields: [createdById], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([name, organizationId])
+  @@index([organizationId])
+  @@map("report_definitions")
 }
 
 // ── VAT / Tax management ────────────────────────────────────────────────────
