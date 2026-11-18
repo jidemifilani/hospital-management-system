@@ -91,6 +91,55 @@ npm run dev
 docker compose up --build
 ```
 
+Three keys have no defaults, because a shared default key is the same as no
+key at all. Generate them before the first run and put them in `.env`:
+
+```bash
+openssl rand -hex 32     # FIELD_ENCRYPTION_KEY
+openssl rand -hex 32     # BACKUP_ENCRYPTION_KEY  (a different one)
+openssl rand -base64 32  # NEXTAUTH_SECRET
+```
+
+The stack brings up `migrate` first, which runs `prisma migrate deploy` and
+exits; the API waits for it to finish, so a deploy can never start against a
+schema it does not match. `backup` takes an encrypted dump once a day at
+`BACKUP_HOUR`, into the `backup_data` volume. Uploaded documents live in
+`documents_data` — in production those are patient records, and without the
+volume a redeploy would destroy them.
+
+---
+
+## Deploying to a Server
+
+Everything above, plus four things that are specific to a real deployment.
+
+**Set the public URLs before building, not after.** `NEXT_PUBLIC_API_URL` is
+compiled into the browser bundle by `next build`, so supplying it only to the
+running container leaves every browser calling whatever was baked in. The
+build fails rather than produce that bundle. In `.env`:
+
+```
+NEXT_PUBLIC_API_URL=https://hms.example.ng
+NEXTAUTH_URL=https://hms.example.ng
+WEB_URL=https://hms.example.ng
+CORS_ORIGINS=https://hms.example.ng
+```
+
+**Terminate TLS.** `DOMAIN=hms.example.ng docker compose --profile tls up -d`
+adds Caddy on 80/443, which obtains and renews the certificate itself. It
+routes `/api/v1/*` to the API and everything else to the web app — `/api/auth/*`
+belongs to the web app, since that is next-auth.
+
+**Do not seed.** The seed creates accounts whose passwords are in this README;
+it refuses to run when `NODE_ENV=production` for that reason. Create the real
+organisation, staff and price list instead, and if you do want demo data on a
+live deployment, say so explicitly with
+`SEED_PRODUCTION="yes-this-is-demo-data"`.
+
+**Keep the keys somewhere other than the server.** Losing
+`FIELD_ENCRYPTION_KEY` loses every encrypted patient column, including in the
+backups; a backup stored with its own key is one theft rather than two.
+
 ---
 
 ## API Endpoints Summary

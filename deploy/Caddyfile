@@ -1,0 +1,18 @@
+# Terminates TLS in front of the two app containers.
+#
+# Caddy obtains and renews the certificate itself, so DOMAIN must already
+# resolve to this host and ports 80 and 443 must reach it.
+{$DOMAIN} {
+	encode gzip
+
+	# Only the API's own prefix goes to the API. The web app serves
+	# /api/auth/* itself -- that is next-auth, and handing it to the API
+	# would break sign-in for everyone.
+	handle /api/v1/* {
+		reverse_proxy api:4000
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}

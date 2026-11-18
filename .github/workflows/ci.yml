@@ -254,3 +254,57 @@ jobs:
             echo "restore overwrote a populated database without --force"; exit 1
           fi
           echo "Refused, as it should."
+
+  # The container build is how this gets deployed, and until now nothing
+  # exercised it: both Dockerfiles pruned a workspace name that does not exist
+  # (`api` rather than `@hms/api`), so neither image had ever been built. A
+  # deployment path nobody runs is a deployment path that does not work.
+  images:
+    name: Container images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: false
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build the web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: false
+          # Any value will do here; what matters is that one is required.
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://ci.invalid
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      - name: Build the backup image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: scripts/Dockerfile
+          push: false
+          cache-from: type=gha,scope=backup
+          cache-to: type=gha,mode=max,scope=backup
+
+      # NEXT_PUBLIC_API_URL is compiled into the browser bundle. A build
+      # without it used to succeed and ship an app that only worked on the
+      # server itself, so the refusal is part of the contract and is checked
+      # here rather than trusted.
+      - name: The web build refuses to bake in a missing API URL
+        run: |
+          if docker buildx build -f apps/web/Dockerfile --target builder                --cache-from type=gha,scope=web . > /tmp/no-arg.log 2>&1; then
+            echo "built with no NEXT_PUBLIC_API_URL; the guard is gone"; exit 1
+          fi
+          grep -q "NEXT_PUBLIC_API_URL build arg is required" /tmp/no-arg.log
+          echo "Refused, as it should."

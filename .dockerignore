@@ -1,0 +1,44 @@
+# Both Dockerfiles start with `COPY . .` in the pruner stage, so without this
+# file the whole working tree goes into an image layer. That was 350MB of
+# context per build, and it included two things that must never be in an
+# image at all: the .env file and the documents directory, which on a real
+# deployment holds patient records.
+
+# Secrets.
+.env
+.env.*
+
+# Patient documents and database dumps. Both are volumes at runtime.
+storage
+**/storage
+backups
+
+# Rebuilt inside the image.
+node_modules
+**/node_modules
+dist
+**/dist
+.next
+**/.next
+.turbo
+**/.turbo
+
+# Not part of a build.
+.git
+.github
+.vscode
+.idea
+docs
+e2e
+playwright.config.ts
+playwright-report
+test-results
+coverage
+**/coverage
+*.log
+npm-debug.log*
+Dockerfile
+**/Dockerfile
+.dockerignore
+docker-compose.yml
+README.md

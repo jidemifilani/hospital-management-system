@@ -3,7 +3,32 @@ import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
+/**
+ * Refuses to run against a production database.
+ *
+ * This seed creates sign-ins whose passwords are published in the README --
+ * admin@caresync.ng / Admin@123456 among them. On a hospital's live database
+ * that is not demo data, it is an administrator account with a password
+ * anyone can look up, and nothing about a successful seed would say so.
+ *
+ * Demo data on a real deployment is a deliberate act, so it takes a
+ * deliberate flag: SEED_PRODUCTION="yes-this-is-demo-data".
+ */
+function refuseInProduction() {
+  const isProduction = process.env.NODE_ENV === "production";
+  const allowed = process.env.SEED_PRODUCTION === "yes-this-is-demo-data";
+  if (!isProduction || allowed) return;
+
+  console.error(
+    "Refusing to seed: NODE_ENV is production and this seed creates accounts " +
+      "whose passwords are in the README. Set SEED_PRODUCTION=\"yes-this-is-demo-data\" " +
+      "if demo data really is what you want here.",
+  );
+  process.exit(1);
+}
+
 async function main() {
+  refuseInProduction();
   console.log("🌱 Seeding database…");
 
   // Organization

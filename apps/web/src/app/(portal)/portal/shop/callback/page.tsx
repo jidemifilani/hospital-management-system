@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { portalApi } from "@/lib/portal-api";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function ShopCallbackPage() {
+function ShopCallback() {
   const params = useSearchParams();
   const router = useRouter();
   const reference = params.get("reference") ?? params.get("trxref") ?? "";
@@ -53,5 +53,28 @@ export default function ShopCallbackPage() {
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * useSearchParams() has to sit inside a Suspense boundary.
+ *
+ * Without one the page cannot be prerendered -- `next build` fails with
+ * "useSearchParams() should be wrapped in a suspense boundary", and the
+ * production build of the whole web app fails with it. The dev server does
+ * not care, which is why this went unnoticed.
+ */
+export default function ShopCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-muted-foreground">Confirming your payment…</p>
+        </div>
+      }
+    >
+      <ShopCallback />
+    </Suspense>
   );
 }

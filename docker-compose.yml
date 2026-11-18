@@ -32,6 +32,24 @@ services:
       timeout: 5s
       retries: 5
 
+  # Applies pending migrations, then exits. The API waits for it to finish.
+  #
+  # Nothing used to run this: the API image's command is `node dist/main.js`,
+  # so a deployment started against whatever schema happened to be there and
+  # failed on the first query that needed a column nobody had added.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: caresync-migrate
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-caresync}:${POSTGRES_PASSWORD:-caresync_secret}@postgres:5432/${POSTGRES_DB:-caresync}
+    command: ["npx", "prisma", "migrate", "deploy"]
+
   api:
     build:
       context: .
@@ -43,6 +61,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-caresync}:${POSTGRES_PASSWORD:-caresync_secret}@postgres:5432/${POSTGRES_DB:-caresync}
@@ -54,24 +74,117 @@ services:
       # would mean every deployment that forgot to set one shared the same
       # key — which is the same as having none.
       FIELD_ENCRYPTION_KEY: "${FIELD_ENCRYPTION_KEY:?generate one with openssl rand -hex 32}"
+
+      # Who may call the API, and where it sends people. CORS_ORIGINS left at
+      # its default refuses the deployed web app; WEB_URL left at its default
+      # returns a patient to localhost after they have paid.
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      WEB_URL: ${WEB_URL:-http://localhost:3000}
+
+      # Unset, each of these fails quietly rather than loudly: payments never
+      # initialise, scheduled reports and digests are never delivered, and
+      # appointment reminders never go out.
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-no-reply@caresync.ng}
+      TERMII_API_KEY: ${TERMII_API_KEY:-}
+      TERMII_SENDER_ID: ${TERMII_SENDER_ID:-CareSync}
+
+      AUDIT_RETENTION_YEARS: ${AUDIT_RETENTION_YEARS:-7}
+      AUDIT_PARTITION_MONTHS_AHEAD: ${AUDIT_PARTITION_MONTHS_AHEAD:-3}
+      LOGIN_RATE_LIMIT: ${LOGIN_RATE_LIMIT:-10}
+      LOGIN_RATE_TTL_MS: ${LOGIN_RATE_TTL_MS:-900000}
+    volumes:
+      # Uploaded documents — patient records. Without this they live in the
+      # container's writable layer and the next redeploy destroys them.
+      - documents_data:/app/storage
     ports:
       - "${API_PORT:-4000}:4000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        # Compiled into the browser bundle, so it has to be set here and not
+        # only below: every browser calls the address baked in at build time.
+        # On a real deployment this is the public URL, not localhost.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
     container_name: caresync-web
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     environment:
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_SECRET: "${NEXTAUTH_SECRET:?generate one with openssl rand -base64 32}"
+      # Needed at runtime as well: the server-rendered pages read it too.
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
     ports:
       - "${WEB_PORT:-3000}:3000"
 
+  # Takes an encrypted backup once a day. Every other recurring job runs inside
+  # the API, but this one needs pg_dump, which the API image does not carry —
+  # so backups were the one recurring task nothing scheduled.
+  backup:
+    build:
+      context: .
+      dockerfile: scripts/Dockerfile
+    container_name: caresync-backup
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-caresync}:${POSTGRES_PASSWORD:-caresync_secret}@postgres:5432/${POSTGRES_DB:-caresync}
+      # Deliberately a different key from FIELD_ENCRYPTION_KEY: restoring a
+      # backup should not hand over the live patient columns.
+      BACKUP_ENCRYPTION_KEY: "${BACKUP_ENCRYPTION_KEY:?generate one with openssl rand -hex 32}"
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      BACKUP_HOUR: ${BACKUP_HOUR:-2}
+    volumes:
+      - backup_data:/backups
+
+  # TLS, with `docker compose --profile tls up`. Off by default so a local run
+  # does not try to obtain a certificate for nothing.
+  #
+  # With it on, set DOMAIN and point the URLs above at https://DOMAIN —
+  # NEXT_PUBLIC_API_URL included, since that one is compiled into the bundle.
+  proxy:
+    image: caddy:2.8-alpine
+    container_name: caresync-proxy
+    profiles: ["tls"]
+    restart: unless-stopped
+    depends_on:
+      - api
+      - web
+    environment:
+      # Not `:?`: compose interpolates every service whether or not its
+      # profile is active, so a required variable here would stop an ordinary
+      # `docker compose up` dead. Unset, Caddy serves https://localhost with
+      # its own CA, which is wrong for a deployment but harmless locally.
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+
 volumes:
   postgres_data:
   redis_data:
+  documents_data:
+  backup_data:
+  caddy_data:
+  caddy_config:

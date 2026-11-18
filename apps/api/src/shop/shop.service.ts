@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../prisma/prisma.service";
 import { PaystackService } from "../billing/paystack.service";
 import { Decimal } from "@prisma/client/runtime/library";
@@ -20,6 +21,7 @@ export class ShopService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly paystack: PaystackService,
+    private readonly config: ConfigService,
   ) {}
 
   async getCatalog(organizationId: string) {
@@ -130,7 +132,10 @@ export class ShopService {
       reference,
       invoiceId: order.invoiceId,
       patientName: `${patient.firstName} ${patient.lastName}`,
-      callbackUrl: `${process.env.FRONTEND_URL ?? "http://localhost:3000"}/portal/shop/callback`,
+      // WEB_URL, the same name billing uses. This read FRONTEND_URL, which
+      // nothing else sets, so a deployment that configured the web address
+      // still sent patients back to localhost after paying.
+      callbackUrl: `${this.config.get<string>("WEB_URL", "http://localhost:3000")}/portal/shop/callback`,
     });
 
     return { order, paymentUrl: paystackRef.authorization_url, reference };

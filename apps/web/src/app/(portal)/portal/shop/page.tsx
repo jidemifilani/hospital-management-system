@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { ShoppingCart, Search, Plus, Minus, Trash2, Loader2, ShoppingBag } from "lucide-react";
 import { portalApi, getPortalPatient } from "@/lib/portal-api";
@@ -90,10 +90,17 @@ export default function PortalShopPage() {
       toast({ title: "Checkout failed", description: "Please try again.", variant: "destructive" }),
   });
 
-  if (!patient) {
-    router.replace("/portal/login");
-    return null;
-  }
+  // Redirecting from an effect rather than from the render.
+  //
+  // Calling router.replace() while rendering reaches for `location`, which
+  // does not exist when the page is prerendered, so `next build` failed on
+  // this page with "ReferenceError: location is not defined". The portal's
+  // logout page already does it this way.
+  useEffect(() => {
+    if (!patient) router.replace("/portal/login");
+  }, [patient, router]);
+
+  if (!patient) return null;
 
   return (
     <div className="space-y-6">

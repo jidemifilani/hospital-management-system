@@ -1,0 +1,5 @@
+# Static files served from the site root.
+#
+# Kept in git even while empty: Next's standalone output does not include
+# public/, so the Dockerfile copies it in, and the COPY fails if the
+# directory does not exist.
