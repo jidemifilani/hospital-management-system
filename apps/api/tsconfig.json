@@ -13,5 +13,16 @@
     "noUncheckedIndexedAccess": false
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "test"]
+  "exclude": ["node_modules", "dist", "test"],
+  // `exclude` keeps these out of the compilation; it does not keep them out
+  // of the watcher. TypeScript watches the project directory recursively, so
+  // writing an uploaded document under storage/ woke the watcher, recompiled
+  // (reporting no errors, since no TypeScript had changed) and restarted
+  // Nest underneath whatever request was in flight.
+  //
+  // That is what made the browser suite flaky: documents.spec.ts uploads
+  // three files, and tests running at that moment failed on a dead API.
+  "watchOptions": {
+    "excludeDirectories": ["node_modules", "dist", "storage", "backups"]
+  }
 }
