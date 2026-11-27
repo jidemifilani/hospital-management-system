@@ -5,9 +5,14 @@
 # redeployed. It carries no application code and never opens a port.
 FROM node:20-alpine
 
-# pg_dump, pg_restore and psql. The major version is pinned to the server's:
-# pg_dump refuses to dump a newer server than itself.
-RUN apk add --no-cache postgresql16-client
+# pg_dump, pg_restore and psql, plus the AWS CLI for copying finished
+# backups off the machine.
+#
+# Version 17, not 16: pg_dump refuses to dump a server newer than itself, and
+# a managed Postgres is on 17 — Neon creates projects on it by default. A
+# 17 client still dumps a 16 server, so this is the safe direction to be
+# wrong in.
+RUN apk add --no-cache postgresql17-client aws-cli
 
 WORKDIR /app
 

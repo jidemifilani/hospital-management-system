@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
+import { dailyKey, JobGuardService } from "../common/scheduling/job-guard.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { ChargesService } from "./charges.service";
 
@@ -16,6 +17,7 @@ export class BedChargeScheduler {
   constructor(
     private prisma: PrismaService,
     private charges: ChargesService,
+    private jobs: JobGuardService,
   ) {}
 
   /**
@@ -26,6 +28,15 @@ export class BedChargeScheduler {
    */
   @Cron("30 0 * * *")
   async postNightlyBedCharges() {
+    // Once per night across every instance. Already idempotent per
+    // (source, sourceRef), but two copies racing would have one of them
+    // failing on the constraint and logging an error for work that was
+    // actually fine.
+    await this.jobs.runOnce("nightly-bed-charges", dailyKey(), () => this.chargeTonight());
+  }
+
+  /** The work itself. Callable by hand to backfill after an outage. */
+  async chargeTonight() {
     const today = startOfDay(new Date());
 
     const admissions = await this.prisma.admission.findMany({

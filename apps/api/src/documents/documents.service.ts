@@ -249,7 +249,7 @@ export class DocumentsService {
       throw new ForbiddenException("This document is restricted");
     }
 
-    if (!this.storage.exists(doc.storageKey)) {
+    if (!(await this.storage.exists(doc.storageKey))) {
       // The row says the file is there and it is not. Saying so is better than
       // streaming nothing and letting the browser show an empty page.
       this.logger.error(`Document ${doc.documentNumber} has no file at ${doc.storageKey}`);
@@ -260,6 +260,8 @@ export class DocumentsService {
   }
 
   stream(storageKey: string) {
+    // Async since storage gained an S3 driver: no object store can answer
+    // for a key without a round trip.
     return this.storage.stream(storageKey);
   }
 

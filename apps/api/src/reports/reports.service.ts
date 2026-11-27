@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
+import { dailyKey, JobGuardService } from "../common/scheduling/job-guard.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { MailService } from "./mail.service";
 import { Decimal } from "@prisma/client/runtime/library";
@@ -33,6 +34,7 @@ export class ReportsService {
   constructor(
     private prisma: PrismaService,
     private mail: MailService,
+    private jobs: JobGuardService,
   ) {}
 
   // ── CRUD ──────────────────────────────────────────────────────────────────
@@ -92,6 +94,12 @@ export class ReportsService {
 
   @Cron("0 7 * * *")
   async runDue() {
+    // Without this, a deploy overlapping 07:00 delivers every due report
+    // twice — to the recipients the hospital configured, not to us.
+    await this.jobs.runOnce("scheduled-reports", dailyKey(), () => this.dispatchDue());
+  }
+
+  async dispatchDue() {
     const now = new Date();
     const due = await this.prisma.scheduledReport.findMany({
       where: {

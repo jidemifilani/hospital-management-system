@@ -16,7 +16,13 @@ async function bootstrap() {
   });
 
   const config = app.get(ConfigService);
-  const port = config.get<number>("API_PORT", 4000);
+
+  // PORT first, because that is what a managed host injects — Render,
+  // Railway, Fly and Heroku all pick the port and expect the process to bind
+  // it. A service that ignores it binds 4000, the platform's health check
+  // finds nothing listening, and the deploy is rolled back with no error that
+  // says why.
+  const port = Number(process.env.PORT) || config.get<number>("API_PORT", 4000);
   const corsOrigins = config.get<string>("CORS_ORIGINS", "http://localhost:3000").split(",");
 
   // Security

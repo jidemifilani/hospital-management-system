@@ -122,7 +122,7 @@ export class DocumentsController {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Cache-Control", "private, no-store");
 
-    this.documents.stream(doc.storageKey).pipe(res);
+    (await this.documents.stream(doc.storageKey)).pipe(res);
   }
 
   @Delete(":id")

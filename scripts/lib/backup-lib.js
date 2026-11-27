@@ -230,7 +230,46 @@ function config() {
   };
 }
 
+
+/**
+ * Copies a finished backup somewhere the machine's death does not take with it.
+ *
+ * A backup on the same host as the database is half a backup, and on a managed
+ * host it is none at all: a scheduled job's filesystem is discarded when the
+ * job ends, so a dump written there exists for about a second. With
+ * BACKUP_S3_BUCKET set, the encrypted dump and its manifest are copied out
+ * before this process exits.
+ *
+ * Shells out to the AWS CLI rather than taking an SDK dependency, because
+ * these scripts run in an image that installs no node modules and already
+ * shells out to pg_dump. The same credentials the API uses for document
+ * storage work here.
+ *
+ * Retention of the remote copies belongs to a bucket lifecycle rule, not to
+ * this script: deleting old backups is exactly the permission a compromised
+ * backup job should not have.
+ */
+async function uploadOffsite(dumpPath, manifestPath) {
+  const bucket = process.env.BACKUP_S3_BUCKET;
+  if (!bucket) return;
+
+  const prefix = process.env.BACKUP_S3_PREFIX || "caresync";
+  const endpoint = process.env.BACKUP_S3_ENDPOINT;
+
+  for (const file of [dumpPath, manifestPath]) {
+    if (!fs.existsSync(file)) continue;
+
+    const key = `${prefix}/${path.basename(file)}`;
+    const args = ["s3", "cp", file, `s3://${bucket}/${key}`];
+    if (endpoint) args.push("--endpoint-url", endpoint);
+
+    await run({ command: "aws", args }, {});
+    console.log(`Copied ${path.basename(file)} to s3://${bucket}/${key}`);
+  }
+}
+
 module.exports = {
+  uploadOffsite,
   BackupKeyError,
   backupName,
   config,

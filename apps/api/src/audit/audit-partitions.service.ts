@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { PrismaService } from "../prisma/prisma.service";
+import { JobGuardService, monthlyKey } from "../common/scheduling/job-guard.service";
 
 /**
  * Keeps the audit table's monthly partitions in order.
@@ -81,7 +82,10 @@ export function expiredPartitions(
 export class AuditPartitionsService implements OnModuleInit {
   private readonly logger = new Logger(AuditPartitionsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jobs: JobGuardService,
+  ) {}
 
   /**
    * Runs at startup as well as on the schedule. A deployment coming up on the
@@ -100,7 +104,9 @@ export class AuditPartitionsService implements OnModuleInit {
 
   @Cron("0 2 1 * *", { name: "audit-partition-maintenance" })
   async monthly() {
-    await this.maintain();
+    // Creating partitions is idempotent, but two instances issuing the same
+    // DDL at once is a deadlock waiting to happen rather than a no-op.
+    await this.jobs.runOnce("audit-partition-maintenance", monthlyKey(), () => this.maintain());
   }
 
   async maintain() {

@@ -1,5 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
+import {
+  dailyKey,
+  JobGuardService,
+  weeklyKey,
+} from "../common/scheduling/job-guard.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -22,11 +27,16 @@ export class OperationsScheduler {
   constructor(
     private prisma: PrismaService,
     private events: EventEmitter2,
+    private jobs: JobGuardService,
   ) {}
 
   /** 07:00 daily — drugs expiring soon, and anything already expired still on shelf. */
   @Cron("0 7 * * *")
   async drugExpiryDigest() {
+    await this.jobs.runOnce("drug-expiry-digest", dailyKey(), () => this.sendDrugExpiryDigest());
+  }
+
+  async sendDrugExpiryDigest() {
     const horizon = addDays(new Date(), EXPIRY_WARNING_DAYS);
 
     const batches = await this.prisma.stockBatch.findMany({
@@ -61,6 +71,10 @@ export class OperationsScheduler {
   /** 07:15 daily — anything at or below its reorder level. */
   @Cron("15 7 * * *")
   async lowStockDigest() {
+    await this.jobs.runOnce("low-stock-digest", dailyKey(), () => this.sendLowStockDigest());
+  }
+
+  async sendLowStockDigest() {
     const drugs = await this.prisma.inventoryItem.findMany({
       where: { isActive: true },
       select: {
@@ -101,6 +115,14 @@ export class OperationsScheduler {
   /** Monday 08:00 — insurance claims submitted but still unsettled. */
   @Cron("0 8 * * 1")
   async agingClaimsDigest() {
+    // Weekly, so the key is the ISO week: a Monday job keyed by date would
+    // run again if the service restarted later the same morning.
+    await this.jobs.runOnce("aging-claims-digest", weeklyKey(), () =>
+      this.sendAgingClaimsDigest(),
+    );
+  }
+
+  async sendAgingClaimsDigest() {
     const cutoff = addDays(new Date(), -CLAIM_AGING_DAYS);
 
     const claims = await this.prisma.insuranceClaim.findMany({
@@ -145,6 +167,12 @@ export class OperationsScheduler {
   /** 07:30 daily — scheduled asset maintenance that has fallen due. */
   @Cron("30 7 * * *")
   async maintenanceDueDigest() {
+    await this.jobs.runOnce("maintenance-due-digest", dailyKey(), () =>
+      this.sendMaintenanceDueDigest(),
+    );
+  }
+
+  async sendMaintenanceDueDigest() {
     const due = await this.prisma.assetMaintenance.findMany({
       where: {
         status: { in: ["SCHEDULED", "IN_PROGRESS"] },

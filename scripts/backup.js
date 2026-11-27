@@ -16,6 +16,10 @@ const lib = require("./lib/backup-lib");
  *   BACKUP_DIR              default ./backups
  *   BACKUP_RETENTION_DAYS   default 30
  *   PG_DOCKER_CONTAINER     run pg_dump inside this container instead of on PATH
+ *   BACKUP_S3_BUCKET        when set, the dump and its manifest are copied
+ *                           off the machine after being written
+ *   BACKUP_S3_PREFIX        default "caresync"
+ *   BACKUP_S3_ENDPOINT      for anything that is not AWS itself (R2, B2)
  */
 
 async function main() {
@@ -74,6 +78,8 @@ async function main() {
 
   const kept = lib.listBackups(cfg.dir);
   console.log(`${kept.length} backup(s) in ${cfg.dir}`);
+
+  await lib.uploadOffsite(target, lib.manifestPathFor(target));
 }
 
 /** Tables whose row counts are worth recording and checking after a restore. */

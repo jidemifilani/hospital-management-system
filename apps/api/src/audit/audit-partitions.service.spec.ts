@@ -27,7 +27,15 @@ function build(partitions: string[] = []) {
     }),
   } as any;
 
-  return { service: new AuditPartitionsService(prisma), prisma, executed };
+  // A guard that always wins the claim: what is under test here is the
+  // partition logic, not the once-only mechanism, which has its own spec.
+  const jobs = {
+    runOnce: jest.fn(async (_name: string, _key: string, work: () => Promise<void>) => {
+      await work();
+      return "ran" as const;
+    }),
+  };
+  return { service: new AuditPartitionsService(prisma, jobs as never), prisma, executed, jobs };
 }
 
 describe("naming", () => {

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
+import { dailyKey, JobGuardService } from "../common/scheduling/job-guard.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RecallService } from "./recall.service";
 
@@ -17,10 +18,15 @@ export class RecallScheduler {
   constructor(
     private prisma: PrismaService,
     private recall: RecallService,
+    private jobs: JobGuardService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_1AM)
   async sweepMissedFollowUps() {
+    await this.jobs.runOnce("missed-follow-up-sweep", dailyKey(), () => this.sweepNow());
+  }
+
+  async sweepNow() {
     const organizations = await this.prisma.organization.findMany({ select: { id: true } });
 
     for (const org of organizations) {

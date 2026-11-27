@@ -1,5 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
+import {
+  dailyKey,
+  hourlyKey,
+  JobGuardService,
+} from "../common/scheduling/job-guard.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { NotificationsService } from "./notifications.service";
 
@@ -10,11 +15,17 @@ export class ReminderScheduler {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private jobs: JobGuardService,
   ) {}
 
   /** Run every hour on the hour — finds appointments 24h and 1h away and sends reminders */
   @Cron(CronExpression.EVERY_HOUR)
   async sendAppointmentReminders() {
+    // Hourly key: the same hour must not send a patient two reminders.
+    await this.jobs.runOnce("appointment-reminders", hourlyKey(), () => this.sendRemindersNow());
+  }
+
+  async sendRemindersNow() {
     const now = new Date();
 
     const windows = [
@@ -67,6 +78,10 @@ export class ReminderScheduler {
   /** Midnight daily — mark overdue invoices */
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async markOverdueInvoices() {
+    await this.jobs.runOnce("mark-overdue-invoices", dailyKey(), () => this.markOverdueNow());
+  }
+
+  async markOverdueNow() {
     const result = await this.prisma.invoice.updateMany({
       where: {
         status: { in: ["ISSUED", "PARTIALLY_PAID"] },

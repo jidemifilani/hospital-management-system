@@ -1,0 +1,157 @@
+# Render blueprint for the API and the backup job.
+#
+# The web app is not here: it goes to Vercel. See docs/deploying-managed.md
+# for the order to create things in and why.
+#
+# Nothing in this file holds a secret. Every value marked `sync: false` is set
+# once in the Render dashboard and never appears in the repository, which is
+# public.
+
+services:
+  # ───────────────────────────── the API ─────────────────────────────
+  #
+  # Docker rather than a native runtime because the image already exists and
+  # already generates the Prisma client at build time.
+  - type: web
+    name: caresync-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /api/v1/health
+
+    # Migrations run here, before the new version starts taking traffic, and
+    # a failure stops the deploy. This is the managed equivalent of the
+    # `migrate` service in docker-compose.yml, and it needs DIRECT_URL: the
+    # pooled endpoint cannot hold the advisory lock Prisma takes.
+    preDeployCommand: npx prisma migrate deploy
+
+    # One instance, deliberately.
+    #
+    # The scheduled jobs are protected against running twice — see
+    # ScheduledJobRun — so more instances would be correct rather than
+    # dangerous. But every extra instance is another Postgres connection pool
+    # against Neon's limit, and a hospital this size does not need two.
+    numInstances: 1
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Neon gives two connection strings. The pooled one is for the
+      # application; the direct one is for migrations, because pgbouncer in
+      # transaction mode keeps no session state.
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+
+      # Upstash, over TLS. ioredis reads rediss:// and turns TLS on itself.
+      - key: REDIS_URL
+        sync: false
+
+      # Lose this and every encrypted patient column is unreadable, including
+      # in the backups. It belongs in a password manager before it belongs
+      # here.
+      - key: FIELD_ENCRYPTION_KEY
+        sync: false
+
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+
+      # The public addresses. CORS_ORIGINS left wrong refuses the web app;
+      # WEB_URL left wrong returns a patient to localhost after they pay.
+      - key: WEB_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+
+      # Documents must not go to the container filesystem: Render replaces it
+      # on every deploy, and the rows would survive while the files did not.
+      - key: STORAGE_DRIVER
+        value: s3
+      - key: AWS_S3_BUCKET
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_S3_ENDPOINT
+        sync: false
+
+      # Each of these fails quietly when unset: no payments, no scheduled
+      # reports or digests, no appointment reminders.
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: TERMII_API_KEY
+        sync: false
+      - key: TERMII_SENDER_ID
+        value: CareSync
+
+      - key: AUDIT_RETENTION_YEARS
+        value: "7"
+      - key: AUDIT_PARTITION_MONTHS_AHEAD
+        value: "3"
+      - key: LOGIN_RATE_LIMIT
+        value: "10"
+      - key: LOGIN_RATE_TTL_MS
+        value: "900000"
+
+  # ──────────────────────── the nightly backup ────────────────────────
+  #
+  # A cron job rather than the compose sidecar, which has nowhere to run
+  # here. Its filesystem is discarded when the job ends, so BACKUP_S3_BUCKET
+  # is not optional on this host: without it the dump is written and thrown
+  # away.
+  #
+  # Neon's own point-in-time restore is the first line of defence and this is
+  # the second. They protect against different things: PITR covers a bad
+  # migration or a mistaken delete, and an encrypted dump in a bucket you
+  # control covers losing the Neon account.
+  - type: cron
+    name: caresync-backup
+    runtime: docker
+    dockerfilePath: ./scripts/Dockerfile
+    dockerContext: .
+    plan: starter
+    region: frankfurt
+    schedule: "0 2 * * *"
+    dockerCommand: node scripts/backup.js
+
+    envVars:
+      # The direct endpoint: pg_dump holds one session for the whole dump.
+      - key: DATABASE_URL
+        sync: false
+
+      # A different key from FIELD_ENCRYPTION_KEY, on purpose: restoring a
+      # backup should not hand over the live patient columns.
+      - key: BACKUP_ENCRYPTION_KEY
+        sync: false
+
+      - key: BACKUP_S3_BUCKET
+        sync: false
+      - key: BACKUP_S3_PREFIX
+        value: caresync
+      - key: BACKUP_S3_ENDPOINT
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_DEFAULT_REGION
+        sync: false
